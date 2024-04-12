@@ -1,0 +1,23 @@
+###### Requirements for using the PhyloTreeGUIv1.0
+######
+###### Author: Paolo Pagliuca <paolo.pagliuca@istc.cnr.it>
+######
+##########################################################
+
+Suggestions: it is highly recommended to use a virtual environment. Here below a guide to the creation
+of a new environment with conda
+
+https://conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html
+
+The code has been successfully tested on Python 3.9.x. In the future, compatibility with newer/older
+Python versions will be ensured.
+
+In order to make the PhyloTreeGUIv1.0 tool work, you need to install some packages:
+
+tkinter version 8.6
+matplotlib version 3.8.x
+numpy
+
+To launch the GUI, open an Ubuntu terminal and type the command:
+
+python main.py
