@@ -21,3 +21,9 @@ numpy
 To launch the GUI, open an Ubuntu terminal and type the command:
 
 python main.py
+
+If you want to launch the GUI at full screen (i.e., the GUI size matches the screen size), you can type the command:
+
+python main.py --fullscreen
+
+In both cases, to exit the GUI you may simply press the "ESC" keyboard button.
