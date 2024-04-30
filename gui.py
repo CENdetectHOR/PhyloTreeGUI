@@ -24,12 +24,22 @@ import matplotlib.gridspec as gridspec
 import matplotlib.ticker as ticker
 import matplotlib.collections as mpcollections
 import copy
+import string
+import pandas as pd
 
 def atoi(text):
     return int(text) if text.isdigit() else text
 
 def natural_keys(text):
     return [ atoi(c) for c in re.split(r'(\d+)', text) ]
+    
+def characters():
+    lower_letters = list(string.ascii_lowercase)
+    upper_letters = list(string.ascii_uppercase)
+    numbers = [str(num) for num in range(10)]
+    special_chars = list(string.punctuation)
+    full_chars = upper_letters + lower_letters + numbers + special_chars
+    return full_chars
 
 ########################################################################################
 ## Pysage GUI
@@ -68,9 +78,11 @@ class PysageGUI(object):
         
         # Phylogenetic tree
         self.tree = None
+        self.tree_backup = None
         self.actual_root = None
         # HOR tree
         self.hor_tree = None
+        self.hor_tree_backup = None
         self.hor_root = None
         self.hor_dict = None
         # Chromosome sequence (start and end)
@@ -120,7 +132,7 @@ class PysageGUI(object):
         
     ##########################################################################
     # Method computing a dictionary for each HOR containing monomers and locations
-    def calcHorsMonomersList(self):
+    def calcHorsMonomersList(self, old_names, new_names):
         all_clades = self.hor_tree.find_clades()
         # Build dict associating to each HOR the corresponding list of monomer(s)
         self.hor_dict = {}
@@ -151,13 +163,35 @@ class PysageGUI(object):
                     except:
                         # Single monomer
                         monomers = monomers_seq
-                    self.hor_dict[clade.name] = [monomers, [seq.location for seq in clade.sequences if clade.sequences is not None]]
-                    if len(monomers) > self.hor_len:
-                        self.hor_len = len(monomers)
-        
+                    # Before storing data, we change name of monomers (and HORs)
+                    new_monos = []
+                    for mono in monomers:
+                        idx = old_names.index(mono)
+                        new_monos.append(new_names[idx])
+                    # Change HOR name
+                    hor_name = str(len(new_monos))
+                    for mono in new_monos:
+                        hor_name += mono
+                    clade.name = hor_name
+                    # Change clade properties
+                    new_value = ""
+                    nmonos = len(new_monos)
+                    cnt = 0
+                    for mono in new_monos:
+                        new_value += mono
+                        cnt += 1
+                        if cnt < nmonos:
+                            new_value += ","
+                    prop.value = new_value
+                    # Store monomers and locations for this HOR
+                    self.hor_dict[clade.name] = [new_monos, [seq.location for seq in clade.sequences if clade.sequences is not None]]
+                    if len(new_monos) > self.hor_len:
+                        self.hor_len = len(new_monos)
+     
     ##########################################################################
     # Method that loads json and xml files with basename <filename>
     def loadFile(self, filename=None):
+        chars = characters()
         if filename is not None:
             res = Phylo.parse(filename, "phyloxml")
             trees = []
@@ -165,6 +199,7 @@ class PysageGUI(object):
                 trees.append(elem)
             # Monomers
             self.tree = trees[0]
+            self.tree_backup = copy.deepcopy(self.tree)
             self.tree.rooted = True
             # Look for the actual root of the tree
             for clade in self.tree.find_clades():
@@ -174,8 +209,26 @@ class PysageGUI(object):
                 except:
                     pass
             assert self.actual_root is not None, "Monomers tree: root not found!!!"
+            # Change name of clades
+            old_names = []
+            new_names = []
+            idx = 0
+            for clade in self.tree.find_clades():
+                 if clade.name and "chr" not in clade.name:
+                     #print(clade.name)
+                     old_names.append(clade.name)
+                     new_names.append(chars[idx])
+                     # Change clade name
+                     clade.name = chars[idx]
+                     idx += 1
+            assert len(old_names) == len(new_names), "Weird error in list append"
+            # Save CSV file containing associations
+            d = {"old_name": old_names, "new_name": new_names}
+            df = pd.DataFrame(data=d)
+            df.to_csv(os.path.join(self.folder, 'name_association.csv'), sep=',', index=False) 
             # HORs
             self.hor_tree = trees[1]
+            self.hot_tree_backup = copy.deepcopy(self.hor_tree)
             self.hor_tree.rooted = True
             # Look for the actual root of the tree
             for clade in self.hor_tree.find_clades():
@@ -186,7 +239,13 @@ class PysageGUI(object):
                     pass
             assert self.hor_root is not None, "HORs tree: root not found!!!"
             # Get list of monomers for each hor (useful to print data)
-            self.calcHorsMonomersList()
+            self.calcHorsMonomersList(old_names, new_names)
+            # Save new XML file
+            new_trees = PX.Phyloxml(phylogenies=[self.tree, self.hor_tree], attributes={'xsd': 'http://www.w3.org/2001/XMLSchema'})
+            fname_no_ext = os.path.splitext(self.filename)[0]
+            fname_no_ext += "_new.xml"
+            outfile = os.path.join(self.folder, fname_no_ext)
+            Phylo.write(new_trees, outfile, format='phyloxml')
         else:
             self.popupMsg("You must select the file before loading!!!")
             return
@@ -1092,26 +1151,6 @@ class PysageGUI(object):
                 j += 1
             i += 1
             
-    ##########################################################################
-    # Change names of HORs and monomers, create a copy of the PhyloXML tree with the
-    # new names and create a CSV file storing the association between old and new names
-    """
-    imgs = [] # Append new name
-    flags = [] # Append old name
-    # Save new dataframe
-    d = {columns[0]: imgs, columns[1]: flags}
-    out_df = pd.DataFrame(data=d)
-    out_df.to_csv(os.path.join(dirname, 'labels.csv'), sep=',', index=False)  
-    """
-    def rename(self):
-        old_names = []
-        new_names = []
-        # Loop over HORs and monomers
-        for monos, hor in zip(self.monomers, self.hors):
-            print(hor)
-            print(monos)
-        sys.exit()
-        
     ##########################################################################    
     # Show data
     def showData(self):
