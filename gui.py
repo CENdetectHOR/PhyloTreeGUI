@@ -1225,7 +1225,6 @@ class PysageGUI(object):
         # Loop over remaining data
         i = 1
         while i < ndata:
-            print("Row %d of %d" % (i, ndata))
             # Get current entry
             cdata = bed_data[i]
             curr_start = cdata[0]
@@ -1350,7 +1349,6 @@ class PysageGUI(object):
         if abs_start + cdata[1] != abs_end:
             fp.write("%s\t%d\t%d\tmono\t0\t+\t%d\t%d\t0,0,0\n" % (self.seq_name, abs_start + cdata[1], abs_end, abs_start + cdata[1], abs_end))
         fp.close()
-        sys.exit()
 
         # Plot data
         nmonos = len(self.monomers)
