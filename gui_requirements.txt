@@ -17,10 +17,18 @@ In order to make the PhyloTreeGUIv1.0 tool work, you need to install some packag
 tkinter version 8.6
 matplotlib version 3.8.x
 numpy
+pandas
 
 To launch the GUI, open an Ubuntu terminal and type the command:
 
 python main.py
+
+You can specify a directory in which all output files (BED file, new PhyloXML trees, CSV file) will be stored. You
+must simply type the command:
+
+python main.py --folder <your_directory>
+
+If the directory you pass does not exist, the program creates it.
 
 If you want to launch the GUI at full screen (i.e., the GUI size matches the screen size), you can type the command:
 
