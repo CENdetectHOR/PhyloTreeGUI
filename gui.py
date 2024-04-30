@@ -1139,7 +1139,7 @@ class PysageGUI(object):
         # Check whether HORs partially overlap
         self.checkPartialOverlap()
         # Change names of HORs and monomers, create a copy of the PhyloXML tree with new names and create a CSV file storing the association between old and new names
-        self.rename()
+        #self.rename()
         # Set zoom flag to false
         self.zoomed = False
         
