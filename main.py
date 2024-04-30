@@ -8,7 +8,7 @@ from gui import GUIFactory
 ## main functions
 ########################################################################################
 
-def start(argv, fullscreen=None):
+def start(folder=None, fullscreen=None):
     
     global tk
     import tkinter as tk
@@ -24,13 +24,14 @@ def start(argv, fullscreen=None):
         root.destroy()
     
     root.bind("<Escape>", close_escape)
-    GUIFactory.create_gui(root)
+    GUIFactory.create_gui(root, folder=folder)
     root.mainloop()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='PhyloTreeGUIv1.0')
+    parser.add_argument('--folder', type=str, default=None)
     parser.add_argument('--fullscreen', action=argparse.BooleanOptionalAction)
     arg = parser.parse_args()
-    start(sys.argv[1:], fullscreen=arg.fullscreen)
+    start(folder=arg.folder, fullscreen=arg.fullscreen)
 
 #sys.argv is the list of commandline arguments passed to the Python program

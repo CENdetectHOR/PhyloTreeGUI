@@ -43,8 +43,8 @@ class GUIFactory:
         GUIFactory.factories[idx] = gui_factory
     add_factory = staticmethod(add_factory)
 
-    def create_gui(master):
-        return PysageGUI.Factory().create(master)
+    def create_gui(master, folder=None):
+        return PysageGUI.Factory().create(master, folder=folder)
     create_gui = staticmethod(create_gui)
 
 
@@ -53,13 +53,18 @@ class GUIFactory:
 class PysageGUI(object):
 
     class Factory:
-        def create(self, master): return PysageGUI(master)
+        def create(self, master, folder=None): return PysageGUI(master, folder=folder)
 
     ##########################################################################
     # standart class init
-    def __init__(self, master):
+    def __init__(self, master, folder=None):
 
         self.master = master
+        # Default folder is current directory
+        folder = os.getcwd()
+        if folder is not None:
+            # Use passed folder
+            self.folder = folder
         
         # Phylogenetic tree
         self.tree = None
@@ -980,7 +985,7 @@ class PysageGUI(object):
             if isinstance(coords, tuple):
                 # Single location
                 x, y = tuple(coords)
-                circle = plt.Circle((x, y), 0.1, color='black')
+                circle = plt.Circle((x, y), 0.1, color='black', zorder=5)
                 ax.add_patch(circle)
                 self.clade_ids[key] = cid
                 cid += 1
@@ -988,7 +993,7 @@ class PysageGUI(object):
                 cids = []
                 for coord in coords:
                     x, y = tuple(coord)
-                    circle = plt.Circle((x, y), 0.1, color='black')
+                    circle = plt.Circle((x, y), 0.1, color='black', zorder=5)
                     ax.add_patch(circle)
                     cids.append(cid)
                     cid += 1
@@ -1004,8 +1009,8 @@ class PysageGUI(object):
         self.master.update_idletasks()
         
     ##########################################################################
-    # Check whether HORs overlap and manage corresponding locations
-    def checkOverlapping(self):
+    # Check whether HORs fully overlap and manage corresponding locations
+    def checkFullOverlap(self):
         # Check consistency of the data
         assert len(self.hors) == len(self.monomers) == len(self.locations), "Inconsistent data!"
         # Loop over HORs to see whether some of them overlap
@@ -1048,6 +1053,64 @@ class PysageGUI(object):
             for cloc in clocs_to_remove:
                 self.locations[i].remove(cloc)
             i += 1
+            
+    ##########################################################################
+    # Check whether HORs partially overlap and manage corresponding locations
+    def checkPartialOverlap(self):
+        # Check consistency of the data
+        assert len(self.hors) == len(self.monomers) == len(self.locations), "Inconsistent data!"
+        # Compute coverage for each HOR
+        self.coverage = {}
+        for i, hor in enumerate(self.hors):
+            locs = self.locations[i]
+            coverage = 0
+            for loc in locs:
+                coverage += (loc[1] - loc[0])
+            self.coverage[hor] = coverage
+        # Loop over HORs to see whether some of them overlap
+        for i in range(len(self.hors)):
+            chor = self.hors[i]
+            # Get current locations
+            clocs = self.locations[i]
+            for j in range(len(self.hors)):
+                if i != j:
+                    ohor = self.hors[j]
+                    # Get other locations
+                    olocs = self.locations[j]
+                    for oloc in olocs:
+                        oloc_start = oloc[0]
+                        oloc_end = oloc[1]
+                        for cloc in clocs:
+                            cloc_start = cloc[0]
+                            cloc_end = cloc[1]
+                            # Check whether locations partially overlap
+                            if cloc_end > oloc_start and cloc_end < oloc_end:
+                                if self.coverage[chor] >= self.coverage[ohor]:
+                                    oloc[0] = cloc[1]
+                                else:
+                                    cloc[1] = oloc[0]
+                j += 1
+            i += 1
+            
+    ##########################################################################
+    # Change names of HORs and monomers, create a copy of the PhyloXML tree with the
+    # new names and create a CSV file storing the association between old and new names
+    """
+    imgs = [] # Append new name
+    flags = [] # Append old name
+    # Save new dataframe
+    d = {columns[0]: imgs, columns[1]: flags}
+    out_df = pd.DataFrame(data=d)
+    out_df.to_csv(os.path.join(dirname, 'labels.csv'), sep=',', index=False)  
+    """
+    def rename(self):
+        old_names = []
+        new_names = []
+        # Loop over HORs and monomers
+        for monos, hor in zip(self.monomers, self.hors):
+            print(hor)
+            print(monos)
+        sys.exit()
         
     ##########################################################################    
     # Show data
@@ -1071,8 +1134,12 @@ class PysageGUI(object):
             
         # Extract HORs
         self.extractHORs()
-        # Check whether HORs overlap
-        self.checkOverlapping()
+        # Check whether HORs fully overlap
+        self.checkFullOverlap()
+        # Check whether HORs partially overlap
+        self.checkPartialOverlap()
+        # Change names of HORs and monomers, create a copy of the PhyloXML tree with new names and create a CSV file storing the association between old and new names
+        self.rename()
         # Set zoom flag to false
         self.zoomed = False
         
@@ -1133,7 +1200,158 @@ class PysageGUI(object):
                                 bed_data.append([rel_start, rel_end, "mono", strand])
         # Sort data based on locations
         bed_data.sort()
-        
+        # Build actual data to be stored (i.e., we collapse info when needed)
+        bdata = []
+        ndata = len(bed_data)
+        # First entry is treated separatedly
+        cdata = bed_data[0]
+        if cdata[0] != 0:
+            # First part is a monomer organization
+            # Check if the first data to be stored is a monomer
+            if cdata[2] != "mono":
+                # HOR, we fill mono until the HOR
+                bdata.append([0, cdata[0], "mono", "+"])
+                bdata.append([cdata[0], cdata[1], cdata[2], cdata[3]])
+            else:
+                # Monomer organization, fill until the end
+                bdata.append([0, cdata[1], cdata[2], cdata[3]])
+        else:
+            bdata.append([cdata[0], cdata[1], cdata[2], cdata[3]])
+        # Store previous data
+        prev_start = cdata[0]
+        prev_end = cdata[1]
+        prev_mono = cdata[2]
+        prev_strand = cdata[3]
+        # Loop over remaining data
+        i = 1
+        while i < ndata:
+            print("Row %d of %d" % (i, ndata))
+            # Get current entry
+            cdata = bed_data[i]
+            curr_start = cdata[0]
+            curr_end = cdata[1]
+            curr_mono = cdata[2]
+            curr_strand = cdata[3]
+            # Check if there is an overlap
+            if curr_start >= prev_start and curr_end <= prev_end:
+                # Overlap -> Ignore current row
+                pass
+            else:
+                if curr_start == prev_end:
+                    if curr_mono == prev_mono:
+                        if curr_strand == prev_strand:
+                            # We simply need to modify end of previous entry
+                            pdata = bdata[-1]
+                            pdata[1] = curr_end
+                            prev_end = curr_end
+                        else:
+                            # Add new line
+                            bdata.append([curr_start, curr_end, curr_mono, curr_strand])
+                            prev_start = curr_start
+                            prev_end = curr_end
+                            prev_strand = curr_strand
+                    else:
+                        # Add new line
+                        bdata.append([curr_start, curr_end, curr_mono, curr_strand])
+                        prev_start = curr_start
+                        prev_end = curr_end
+                        prev_mono = curr_mono
+                        prev_strand = curr_strand
+                else:
+                    # There is a gap, fill with a mono
+                    if curr_mono != "mono":
+                        if prev_mono != "mono":
+                            bdata.append([prev_end, curr_start, "mono", "+"])
+                        else:
+                            pdata = bdata[-1]
+                            pdata[1] = curr_start
+                        bdata.append([curr_start, curr_end, curr_mono, curr_strand])
+                        prev_start = curr_start
+                        prev_end = curr_end
+                        prev_mono = curr_mono
+                        prev_strand = curr_strand
+                    else:
+                        pdata = bdata[-1]
+                        pdata[1] = curr_end
+                        prev_end = curr_end
+            i += 1
+               
+        # Build output BED filename (there is one file for each level/cut)
+        filename = os.path.splitext(self.filename)[0]
+        outfile = filename + "_"
+        for hor in self.hors:
+            outfile += hor + "-"
+        outfile = outfile[:-1]
+        outfile += ".bed"
+        fp = open(os.path.join(self.folder, outfile), "w")
+        # Write data
+        rows = len(bdata)
+        # First row
+        cdata = bdata[0]
+        cols = len(cdata)
+        assert cols == 4, "Inconsistent data length {%d}!".format(cols)
+        # Header
+        fp.write("track name=\"ItemRGBDemo\" description=\"Item RGB demonstration\" itemRgb=\"On\"\n")
+        if cdata[0] != 0:
+            fp.write("%s\t%d\t%d\tmono\t0\t+\t%d\t%d\t0,0,0\n" % (self.seq_name, abs_start, abs_start + cdata[0], abs_start, abs_start + cdata[0]))
+        # Get index of HOR in list in order to retrieve the corresponding color
+        idx = -1
+        cnt = 0
+        found = False
+        for mono_str in monomer_string:
+            if cdata[2] == mono_str:
+                found = True
+                idx = cnt
+                break
+            cnt += 1
+        if found:
+            # Extract the color
+            ccolor = self.hor_colors[idx % len(self.hor_colors)]
+            # Convert the color string into RGB (values bounded in the range [0,1])
+            red, green, blue = mcolors.to_rgb(ccolor)
+            # Adjust red, green and blue in the range [0,255]
+            red = int(red * 255)
+            green = int(green * 255)
+            blue = int(blue * 255)
+            fp.write("%s\t%d\t%d\t%s\t0\t%s\t%d\t%d\t%d,%d,%d\n" % (self.seq_name, abs_start + cdata[0], abs_start + cdata[1], cdata[2], cdata[3], abs_start + cdata[0], abs_start + cdata[1], red, green, blue))
+        else:
+            fp.write("%s\t%d\t%d\t%s\t0\t%s\t%d\t%d\t0,0,0\n" % (self.seq_name, abs_start + cdata[0], abs_start + cdata[1], cdata[2], cdata[3], abs_start + cdata[0], abs_start + cdata[1]))
+        # Other rows
+        row = 1
+        while row < rows:
+            # Get current data
+            cdata = bdata[row]
+            cols = len(cdata)
+            assert cols == 4, "Inconsistent data length {%d}!".format(cols)
+            # Get index of HOR in list in order to retrieve the corresponding color
+            idx = -1
+            cnt = 0
+            found = False
+            for mono_str in monomer_string:
+                if cdata[2] == mono_str:
+                    found = True
+                    idx = cnt
+                    break
+                cnt += 1
+            if found:
+                # Extract the color
+                ccolor = self.hor_colors[idx % len(self.hor_colors)]
+                # Convert the color string into RGB (values bounded in the range [0,1])
+                red, green, blue = mcolors.to_rgb(ccolor)
+                # Adjust red, green and blue in the range [0,255]
+                red = int(red * 255)
+                green = int(green * 255)
+                blue = int(blue * 255)
+                fp.write("%s\t%d\t%d\t%s\t0\t%s\t%d\t%d\t%d,%d,%d\n" % (self.seq_name, abs_start + cdata[0], abs_start + cdata[1], cdata[2], cdata[3], abs_start + cdata[0], abs_start + cdata[1], red, green, blue))
+            else:
+                fp.write("%s\t%d\t%d\t%s\t0\t%s\t%d\t%d\t0,0,0\n" % (self.seq_name, abs_start + cdata[0], abs_start + cdata[1], cdata[2], cdata[3], abs_start + cdata[0], abs_start + cdata[1]))
+            row += 1
+        # Additional information to complete the sequence
+        if abs_start + cdata[1] != abs_end:
+            fp.write("%s\t%d\t%d\tmono\t0\t+\t%d\t%d\t0,0,0\n" % (self.seq_name, abs_start + cdata[1], abs_end, abs_start + cdata[1], abs_end))
+        fp.close()
+        sys.exit()
+
         # Plot data
         nmonos = len(self.monomers)
         assert nmonos >= 1, "Invalid number of HORs!!!"
@@ -1181,7 +1399,9 @@ class PysageGUI(object):
                 rect = patches.Rectangle((i, 0), 1, 1, facecolor=cmono_colors[i].to_hex(), edgecolor='black')
                 ax_hor.add_patch(rect)
                 ax_hor.text(i, 1.25, str(cmono[i]), fontsize='xx-small')
-            ax_hor.text(-1.5, 0.5, self.hors[j], fontsize='xx-small')
+            hor_rect = patches.Rectangle((-4.5, 0.25), 2, 0.5, color=self.clicked_colors[j], clip_on=False)
+            ax_hor.add_patch(hor_rect)
+            ax_hor.text(-3.5, 1, self.hors[j], fontsize='xx-small')
            
         # Locations of HORs in sequence
         nlocs = len(self.locations)
@@ -1210,10 +1430,13 @@ class PysageGUI(object):
                     ax_seq.annotate("", (loc[1], 1.25), (loc[0], 1.25), xycoords=trans, arrowprops=dict(arrowstyle='<|-'))#width=1))
             if cplt is not None:
                 plts.append(cplt)
+            
+        """
         if len(plts) > 0:
             # Add legend
             nc = 1
             ax_seq.legend(plts, self.hors, loc='best', bbox_to_anchor=(0.5, -0.25), ncols=nc) # Legend's location must be fine-tuned
+        """
         # Create the canvas
         self.tree_canvas = FigureCanvasTkAgg(fig, master=self.w)
         self.tree_canvas.draw()
@@ -1224,7 +1447,7 @@ class PysageGUI(object):
         self.other_canvas.get_tk_widget().pack() 
         self.master.update()
         self.master.update_idletasks()
-        
+        """
         # Build output BED filename (there is one file for each level/cut)
         filename = os.path.splitext(self.filename)[0]
         outfile = filename + "_"
@@ -1232,13 +1455,15 @@ class PysageGUI(object):
             outfile += hor + "-"
         outfile = outfile[:-1]
         outfile += ".bed"
-        fp = open(outfile, "w")
+        fp = open(os.path.join(self.folder, outfile), "w")
         # Write data
         rows = len(bed_data)
         # First row
         cdata = bed_data[0]
         cols = len(cdata)
         assert cols == 4, "Inconsistent data length {%d}!".format(cols)
+        # Header
+        fp.write("track name=\"ItemRGBDemo\" description=\"Item RGB demonstration\" itemRgb=\"On\"\n")
         if cdata[0] != 0:
             fp.write("%s\t%d\t%d\tmono\t0\t+\t%d\t%d\t0,0,0\n" % (self.seq_name, abs_start, abs_start + cdata[0], abs_start, abs_start + cdata[0]))
         # Get index of HOR in list in order to retrieve the corresponding color
@@ -1297,6 +1522,7 @@ class PysageGUI(object):
         if abs_start + cdata[1] != abs_end:
             fp.write("%s\t%d\t%d\tmono\t0\t+\t%d\t%d\t0,0,0\n" % (self.seq_name, abs_start + cdata[1], abs_end, abs_start + cdata[1], abs_end))
         fp.close()
+        """
         
     ##########################################################################    
     # Zoom out
