@@ -437,17 +437,16 @@ class PysageGUI(object):
             for clade in all_clades:
                 if clade.color.to_hex() != "#0000FF":
                     clade.color = PX.BranchColor.from_name('black')
-                if cnt == node_idx:
-                    clade.color = PX.BranchColor.from_name('blue')
-                    clade_root = clade
-                    found = True
-                if found:
-                    if clade in clade_root.find_clades():
+                    if cnt == node_idx:
                         clade.color = PX.BranchColor.from_name('blue')
+                        clade_root = clade
+                        found = True
+                    if found:
+                        if clade in clade_root.find_clades():
+                            clade.color = PX.BranchColor.from_name('blue')
                 if clade.name:
                     clade.name = None
                 cnt += 1
-            all_clades = treeForSubPlot.find_clades()
             Phylo.draw(treeForSubPlot, axes=self.axes_ins)
             self.axes_ins.get_xaxis().set_visible(False)
             self.axes_ins.get_yaxis().set_visible(False)
