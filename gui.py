@@ -111,6 +111,7 @@ class PysageGUI(object):
         self.clades_to_collapse = {}
         self.collapsed_clades = {}
         self.collapsed_indices = None
+        self.collapsed_colors = None
         self.collapsed_patches = None
         self.zoomed = False
         self.ax_tree = None
@@ -423,8 +424,9 @@ class PysageGUI(object):
                     clade.name = None
             Phylo.draw(treeToPlot, axes=self.ax_tree)
             
-            # Get index of collapsed node
-            node_idx = self.collapsed_indices[self.collapsed_clades[elem].root]
+            # Get color of collapsed node
+            #node_idx = self.collapsed_indices[self.collapsed_clades[elem].root]
+            node_color = self.collapsed_colors[self.collapsed_clades[elem].root]
             
             # Add other plot inside this plot
             self.axes_ins = inset_axes(self.ax_tree, width="20%", height="20%", loc=2) # Sub-plot in upper left corner
@@ -435,15 +437,8 @@ class PysageGUI(object):
             clade_root = []
             found = False
             for clade in all_clades:
-                if clade.color.to_hex() != "#0000FF":
+                if clade.color.to_hex() != node_color.to_hex() and clade.color.to_hex() != "#000000":
                     clade.color = PX.BranchColor.from_name('black')
-                    if cnt == node_idx:
-                        clade.color = PX.BranchColor.from_name('blue')
-                        clade_root = clade
-                        found = True
-                    if found:
-                        if clade in clade_root.find_clades():
-                            clade.color = PX.BranchColor.from_name('blue')
                 if clade.name:
                     clade.name = None
                 cnt += 1
@@ -714,6 +709,7 @@ class PysageGUI(object):
         self.clades_to_collapse = {}
         self.collapsed_clades = {}
         self.collapsed_indices = {}
+        self.collapsed_colors = {}
         self.collapsed_patches = {}
     
         # Arrays that store lines for the plot of clades
@@ -968,6 +964,7 @@ class PysageGUI(object):
                         break
                     cnt += 1
                 self.collapsed_indices[clade] = idx
+                self.collapsed_colors[clade] = clade.color
                 draw = False
             if draw:
                 # phyloXML-only graphics annotations
