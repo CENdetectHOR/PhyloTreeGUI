@@ -26,6 +26,7 @@ import matplotlib.collections as mpcollections
 import copy
 import string
 import pandas as pd
+from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 
 def atoi(text):
     return int(text) if text.isdigit() else text
@@ -109,9 +110,11 @@ class PysageGUI(object):
         self.patches = None
         self.clades_to_collapse = {}
         self.collapsed_clades = {}
+        self.collapsed_indices = None
         self.collapsed_patches = None
         self.zoomed = False
         self.ax_tree = None
+        self.axes_ins = None
         # Colors to highlight branches
         self.colors = ['red', 'green', 'blue', 'orange', 'yellow', 'purple', 'grey', 'brown', 'cyan', 'magenta', 'pink', 'gold', 'salmon', 'lime', 'teal', 'silver', 'fuchsia', 'aqua', 'maroon', 'navy', 'olive', 'gray']#mcolors.TABLEAU_COLORS
         self.hor_colors = ['cyan', 'magenta', 'orange', 'purple', 'pink', 'yellow', 'brown', 'blue', 'green', 'red', 'lime', 'navy', 'gold', 'salmon']
@@ -419,6 +422,36 @@ class PysageGUI(object):
                 if clade.name:
                     clade.name = None
             Phylo.draw(treeToPlot, axes=self.ax_tree)
+            
+            # Get index of collapsed node
+            node_idx = self.collapsed_indices[self.collapsed_clades[elem].root]
+            
+            # Add other plot inside this plot
+            self.axes_ins = inset_axes(self.ax_tree, width="20%", height="20%", loc=2) # Sub-plot in upper left corner
+            # Copy of original tree
+            treeForSubPlot = copy.deepcopy(self.tree)
+            all_clades = treeForSubPlot.find_clades()
+            cnt = 0
+            clade_root = []
+            found = False
+            for clade in all_clades:
+                if clade.color.to_hex() != "#0000FF":
+                    clade.color = PX.BranchColor.from_name('black')
+                if cnt == node_idx:
+                    clade.color = PX.BranchColor.from_name('blue')
+                    clade_root = clade
+                    found = True
+                if found:
+                    if clade in clade_root.find_clades():
+                        clade.color = PX.BranchColor.from_name('blue')
+                if clade.name:
+                    clade.name = None
+                cnt += 1
+            all_clades = treeForSubPlot.find_clades()
+            Phylo.draw(treeForSubPlot, axes=self.axes_ins)
+            self.axes_ins.get_xaxis().set_visible(False)
+            self.axes_ins.get_yaxis().set_visible(False)
+            
             self.tree_canvas.draw()
             
             # Set zoom flag to true
@@ -681,6 +714,7 @@ class PysageGUI(object):
         # Collapsed_clades is a dict: key: coordinate of the patch; value: the phylogenetic tree with the collased clade as root
         self.clades_to_collapse = {}
         self.collapsed_clades = {}
+        self.collapsed_indices = {}
         self.collapsed_patches = {}
     
         # Arrays that store lines for the plot of clades
@@ -927,6 +961,14 @@ class PysageGUI(object):
                 )
                 # Add the "new" tree to the dict
                 self.collapsed_clades[(x_here, y_here)] = PX.Phylogeny(root=clade, name=clade.name)
+                idx = None
+                cnt = 0
+                for elem in tree.find_clades():
+                    if elem == clade:
+                        idx = cnt
+                        break
+                    cnt += 1
+                self.collapsed_indices[clade] = idx
                 draw = False
             if draw:
                 # phyloXML-only graphics annotations
@@ -1568,6 +1610,8 @@ class PysageGUI(object):
         if self.zoomed:
             # Clear the window
             self.ax_tree.clear()
+            if self.axes_ins is not None:
+                self.axes_ins.remove()
             treeToPlot = copy.deepcopy(self.tree)
             # Plot the collapsed tree
             self.drawCollapsedTree(treeToPlot, axes=self.ax_tree)#self.tree, axes=self.ax_tree)
