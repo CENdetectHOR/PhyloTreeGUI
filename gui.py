@@ -27,6 +27,7 @@ import copy
 import string
 import pandas as pd
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+from matplotlib.widgets import Slider
 
 def atoi(text):
     return int(text) if text.isdigit() else text
@@ -108,14 +109,23 @@ class PysageGUI(object):
         self.clicked_colors = None
         self.num_clicked = 0
         self.patches = None
+        # Nodes to be collapsed and relative information
         self.clades_to_collapse = {}
         self.collapsed_clades = {}
         self.collapsed_indices = None
         self.collapsed_colors = None
         self.collapsed_patches = None
+        # Zoom
         self.zoomed = False
+        self.zoomed_nodes = []
+        self.zoomed_coords = []
+        self.treeForSubPlot = None
+        # Tree axis
         self.ax_tree = None
+        self.ax_tree_ins = None
         self.axes_ins = None
+        # Data to scroll
+        self.scroll_y = 0.0
         # Colors to highlight branches
         self.colors = ['red', 'green', 'blue', 'orange', 'yellow', 'purple', 'grey', 'brown', 'cyan', 'magenta', 'pink', 'gold', 'salmon', 'lime', 'teal', 'silver', 'fuchsia', 'aqua', 'maroon', 'navy', 'olive', 'gray']#mcolors.TABLEAU_COLORS
         self.hor_colors = ['cyan', 'magenta', 'orange', 'purple', 'pink', 'yellow', 'brown', 'blue', 'green', 'red', 'lime', 'navy', 'gold', 'salmon']
@@ -415,6 +425,10 @@ class PysageGUI(object):
             # Found patch
             found = True
         if found:
+            # Append the element to the list of nodes to zoom
+            self.zoomed_nodes.append(self.collapsed_clades[elem])
+            self.zoomed_coords.append(elem)
+            """
             # We store collapsed tree to be restored
             self.ax_tree.clear()
             treeToPlot = copy.deepcopy(self.collapsed_clades[elem])
@@ -450,6 +464,140 @@ class PysageGUI(object):
             
             # Set zoom flag to true
             self.zoomed = True
+            """
+            
+    ##########################################################################    
+    # Zoom in
+    def zoomIn(self):
+        if len(self.zoomed_nodes) == 0:
+            self.popupMsg("You must click a node before zooming!!!")
+            return
+        # Clear figure
+        self.ax_tree.clear()
+        
+        self.ax_tree.get_xaxis().set_visible(False)
+        self.ax_tree.get_yaxis().set_visible(False)
+        
+        node_colors = []
+        start_x = 0.0
+        start_y = 0.0
+        width = 1.0
+        height = 1.0 / len(self.zoomed_nodes)
+        self.ax_tree_ins = []
+        for elem in self.zoomed_nodes:
+            """
+            cax_tree_ins = self.ax_tree.inset_axes([start_x, start_y, width, height])
+            self.ax_tree_ins.append(cax_tree_ins)
+            treeToPlot = copy.deepcopy(elem)
+            clades = treeToPlot.find_clades()
+            for clade in clades:
+                if clade.name:
+                    clade.name = None
+            Phylo.draw(treeToPlot, axes=cax_tree_ins)
+            cax_tree_ins.get_xaxis().set_visible(False)
+            cax_tree_ins.get_yaxis().set_visible(False)
+            """
+            node_colors.append(self.collapsed_colors[elem.root])
+            
+        self.ax_tree_ins = []
+        ax_tree_ins = self.ax_tree.inset_axes([0.0, 0.0, 0.95, 1.0])
+        self.ax_tree_ins.append(ax_tree_ins)
+        ax_slider_ins = self.ax_tree.inset_axes([0.95, 0.0, 0.05, 1.0])
+        self.ax_tree_ins.append(ax_slider_ins)
+            
+        # Now create global inner plot
+        # Add other plot inside this plot
+        #self.axes_ins = inset_axes(self.ax_tree, width="20%", height="20%", loc=2) # Sub-plot in upper left corner
+        # Copy of original tree
+        self.treeForSubPlot = copy.deepcopy(self.tree)
+        all_clades = self.treeForSubPlot.find_clades()
+        found = False
+        for clade in all_clades:
+            toColor = False
+            found = False
+            for node_color in node_colors:
+                if clade.color.to_hex() == node_color.to_hex():
+                    found = True
+                    break
+            if not found:
+                if clade.color.to_hex() != "#000000":
+                    toColor = True
+            if toColor:
+                clade.color = PX.BranchColor.from_name('black')
+            """
+            if clade.name:
+                clade.name = None
+            """
+            
+        # Create list of nodes to expand
+        nodes_to_expand = self.zoomed_nodes#[elem.root for elem in self.zoomed_nodes]
+        nodes_to_collapse = []
+        coords_to_collapse = []
+        keys = list(self.collapsed_clades.keys())
+        for elem in keys:
+            cclade = self.collapsed_clades[elem]
+            if cclade not in self.zoomed_nodes:
+                nodes_to_collapse.append(cclade)
+                coords_to_collapse.append(elem)
+        coords_to_expand = self.zoomed_coords
+
+        ymax = self.treeForSubPlot.count_terminals() + 0.8
+        ymin = 0.2
+        ydiff = ymax - ymin
+        yrange = ydiff / 100.0
+        cy = ymin
+        #ax_tree_ins.get_xaxis().set_visible(False)
+        #ax_tree_ins.get_yaxis().set_visible(False)
+        
+        #ax_slider_ins.get_xaxis().set_visible(False)
+        #ax_slider_ins.get_yaxis().set_visible(False)
+        
+        #self.ax_tree.set_xlim(xmin, xmax)
+        
+        # adjust the main plot to make room for the slider
+        #self.fig.subplots_adjust(right=0.25)
+        
+        # Choose the Slider color
+        slider_color = 'White'
+        #slider_axis = self.fig.add_axes([xmax, ymax, 0.5, ymin - ymax])
+        
+        slider_position = Slider(ax_slider_ins, label='', valmin=0.0, valmax=1.0, valinit=1.0, orientation="vertical")
+        
+        #print(slider_position.val)
+        
+        self.drawTreePart(self.treeForSubPlot, nodes_to_collapse=nodes_to_collapse, coords_to_collapse=coords_to_collapse, y_min=ymin, y_max=ymin + yrange, axes=ax_tree_ins)#Phylo.draw(self.treeForSubPlot, axes=ax_tree_ins)#self.ax_tree)#es_ins)
+        #self.drawTreePartOld(self.treeForSubPlot, y_min=ymin, y_max=ymin + yrange, axes=ax_tree_ins)
+        
+        # update() function to change the graph when the slider is in use
+        def update(val):
+            pos = slider_position.val
+            #print(pos)
+            #self.ax_tree.axis([xmin, xmax, pos-10.0, pos])
+            #ax_tree_ins.axis([xmin, xmax, pos-10.0, pos])
+            #self.fig.canvas.draw_idle()
+            
+            posy = round(pos, 2)
+            
+            dy = 1.0 - posy
+            
+            bottom_y = 0.2 + ydiff * dy
+            top_y = bottom_y + yrange
+            if top_y > ymax:
+                top_y = ymax
+                bottom_y = ymax - yrange#ydiff
+            self.drawTreePart(self.treeForSubPlot, nodes_to_collapse=nodes_to_collapse, coords_to_collapse=coords_to_collapse, y_min=bottom_y, y_max=top_y, axes=ax_tree_ins)
+            #self.drawTreePartOld(self.treeForSubPlot, y_min=bottom_y, y_max=top_y, axes=ax_tree_ins)
+            print("done")
+        
+        # update function called using on_changed() function
+        slider_position.on_changed(update)
+        # make slider text not visible
+        slider_position.valtext.set_visible(False)
+            
+        self.tree_canvas.draw()
+            
+        # Set zoom flag to true
+        self.zoomed = True
 
     ##########################################################################
     # Copy of Phylo.draw() used to store coordinates of clades
@@ -484,7 +632,7 @@ class PysageGUI(object):
 
                 def format_branch_label(clade):
                     try:
-                        confidences = clade.confidences
+                        confidences = clade.confidencesPhylo.draw
                         # phyloXML supports multiple confidences
                     except AttributeError:
                         pass
@@ -1053,6 +1201,578 @@ class PysageGUI(object):
             plt.show()
             
         self.collapsed_patches = axes.patches
+        
+    ##########################################################################
+    # Copy of Phylo.draw() used to show part of the tree
+    def drawTreePartOld(self, 
+        tree,
+        y_min = None,
+        y_max = None,
+        label_func=str,
+        do_show=True,
+        show_confidence=True,
+        # For power users
+        axes=None,
+        branch_labels=None,
+        label_colors=None,
+        *args,
+        **kwargs,
+    ):
+    
+        # Arrays that store lines for the plot of clades
+        horizontal_linecollections = []
+        vertical_linecollections = []
+
+        # Options for displaying branch labels / confidence
+        def conf2str(conf):
+            if int(conf) == conf:
+                return str(int(conf))
+            return str(conf)
+
+        if not branch_labels:
+            if show_confidence:
+
+                def format_branch_label(clade):
+                    try:
+                        confidences = clade.confidencesPhylo.draw
+                        # phyloXML supports multiple confidences
+                    except AttributeError:
+                        pass
+                    else:
+                        return "/".join(conf2str(cnf.value) for cnf in confidences)
+                    if clade.confidence is not None:
+                        return conf2str(clade.confidence)
+                    return None
+
+            else:
+
+                def format_branch_label(clade):
+                    return None
+
+        elif isinstance(branch_labels, dict):
+
+            def format_branch_label(clade):
+                return branch_labels.get(clade)
+
+        else:
+            if not callable(branch_labels):
+                raise TypeError(
+                    "branch_labels must be either a dict or a callable (function)"
+                )
+            format_branch_label = branch_labels
+
+        # options for displaying label colors.
+        if label_colors:
+            if callable(label_colors):
+
+                def get_label_color(label):
+                    return label_colors(label)
+
+            else:
+                # label_colors is presumed to be a dictPhylo.draw(self.tree, axes=ax_tree)
+                def get_label_color(label):
+                    return label_colors.get(label, "black")
+
+        else:
+
+            def get_label_color(label):
+                # if label_colors is not specified, use black
+                return "black"
+
+        # Layout
+
+        def get_x_positions(tree):
+            depths = tree.depths()
+            # If there are no branch lengths, assume unit branch lengths
+            if not max(depths.values()):
+                depths = tree.depths(unit_branch_lengths=True)
+            return depths
+
+        def get_y_positions(tree):
+            maxheight = tree.count_terminals()
+            # Rows are defined by the tips
+            heights = {tip: maxheight - i for i, tip in enumerate(reversed(tree.get_terminals()))}
+
+            # Internal nodes: place at midpoint of children
+            def calc_row(clade):
+                for subclade in clade:
+                    if subclade not in heights:
+                        calc_row(subclade)
+                # Closure over heights
+                heights[clade] = (heights[clade.clades[0]] + heights[clade.clades[-1]]) / 2.0
+
+            if tree.root.clades:
+                calc_row(tree.root)
+            return heights
+
+        x_posns = get_x_positions(tree)
+        y_posns = get_y_positions(tree)
+        # The function draw_clade closes over the axes object
+        if axes is None:
+            fig = plt.figure()
+            axes = fig.add_subplot(1, 1, 1)
+        elif not isinstance(axes, plt.matplotlib.axes.Axes):
+            raise ValueError(f"Invalid argument for axes: {axes}")
+
+        def draw_clade_lines(
+            use_linecollection=False,
+            orientation="horizontal",
+            y_here=0,
+            x_start=0,
+            x_here=0,
+            y_bot=0,
+            y_top=0,
+            color="black",
+            lw=".1",
+        ):
+
+            if not use_linecollection and orientation == "horizontal":
+                axes.hlines(y_here, x_start, x_here, color=color, lw=lw)
+            elif use_linecollection and orientation == "horizontal":
+                horizontal_linecollections.append(
+                    mpcollections.LineCollection(
+                        [[(x_start, y_here), (x_here, y_here)]], color=color, lw=lw
+                    )
+                )
+            elif not use_linecollection and orientation == "vertical":
+                axes.vlines(x_here, y_bot, y_top, color=color)
+            elif use_linecollection and orientation == "vertical":
+                vertical_linecollections.append(
+                    mpcollections.LineCollection(
+                        [[(x_here, y_bot), (x_here, y_top)]], color=color, lw=lw
+                    )
+                )
+        
+        #print(self.clades_to_collapse)
+        #print(len(list(self.clades_to_collapse.keys())))
+        #sys.exit()
+
+        def draw_clade(clade, x_start, color, lw):
+            """Recursively draw a tree, down from the given clade."""
+            x_here = x_posns[clade]
+            y_here = y_posns[clade]
+            # phyloXML-only graphics annotations
+            if hasattr(clade, "color") and clade.color is not None:
+                color = clade.color.to_hex()
+            if hasattr(clade, "width") and clade.width is not None:
+                lw = clade.width * plt.rcParams["lines.linewidth"]
+            # Draw a horizontal line from start to here
+            draw_clade_lines(
+                use_linecollection=True,
+                orientation="horizontal",
+                y_here=y_here,
+                x_start=x_start,
+                x_here=x_here,
+                color=color,
+                lw=lw,
+            )
+            if clade.clades:
+                # Draw a vertical line connecting all children
+                y_top = y_posns[clade.clades[0]]
+                y_bot = y_posns[clade.clades[-1]]
+                # Only apply widths to horizontal lines, like Archaeopteryx
+                draw_clade_lines(
+                    use_linecollection=True,
+                    orientation="vertical",
+                    x_here=x_here,
+                    y_bot=y_bot,
+                    y_top=y_top,
+                    color=color,
+                    lw=lw,
+                )
+                # Draw descendents
+                for child in clade:
+                    draw_clade(child, x_here, color, lw)
+
+        draw_clade(tree.root, 0, "k", plt.rcParams["lines.linewidth"])
+        
+
+        # If line collections were used to create clade lines, here they are added
+        # to the pyplot plot.
+        for i in horizontal_linecollections:
+            axes.add_collection(i)
+        for i in vertical_linecollections:
+            axes.add_collection(i)
+
+        # Aesthetics
+
+        try:
+            name = tree.name
+        except AttributeError:
+            pass
+        else:
+            if name:
+                axes.set_title(name)
+        axes.set_xlabel("branch length")
+        axes.set_ylabel("taxa")
+        # Add margins around the tree to prevent overlapping the axes
+        xmax = max(x_posns.values())
+        axes.set_xlim(-0.05 * xmax, 1.25 * xmax)
+        # Also invert the y-axis (origin at the top)
+        # Add a small vertical margin, but avoid including 0 and N+1 on the y axis
+        axes.set_ylim(y_max, y_min)#max(y_posns.values()) + 0.8, 0.2)
+
+        # Parse and process key word arguments as pyplot options
+        for key, value in kwargs.items():
+            try:
+                # Check that the pyplot option input is iterable, as required
+                list(value)
+            except TypeError:
+                raise ValueError(
+                    'Keyword argument "%s=%s" is not in the format '
+                    "pyplot_option_name=(tuple), pyplot_option_name=(tuple, dict),"
+                    " or pyplot_option_name=(dict) " % (key, value)
+                ) from None
+            if isinstance(value, dict):
+                getattr(plt, str(key))(**dict(value))
+            elif not (isinstance(value[0], tuple)):
+                getattr(plt, str(key))(*value)
+            elif isinstance(value[0], tuple):
+                getattr(plt, str(key))(*value[0], **dict(value[1]))
+
+        if do_show:
+            plt.show()
+            
+    ##########################################################################
+    # Copy of Phylo.draw() used to show part of the tree
+    def drawTreePart(self, 
+        tree,
+        nodes_to_collapse = None,
+        coords_to_collapse = None,
+        y_min = None,
+        y_max = None,
+        label_func=str,
+        do_show=True,
+        show_confidence=True,
+        # For power users
+        axes=None,
+        branch_labels=None,
+        label_colors=None,
+        *args,
+        **kwargs,
+    ):
+    
+        # Collapsed_clades is a dict: key: coordinate of the patch; value: the phylogenetic tree with the collased clade as root
+        clades_to_collapse = {}
+    
+        # Arrays that store lines for the plot of clades
+        horizontal_linecollections = []
+        vertical_linecollections = []
+
+        # Options for displaying branch labels / confidence
+        def conf2str(conf):
+            if int(conf) == conf:
+                return str(int(conf))
+            return str(conf)
+
+        if not branch_labels:
+            if show_confidence:
+
+                def format_branch_label(clade):
+                    try:
+                        confidences = clade.confidences
+                        # phyloXML supports multiple confidences
+                    except AttributeError:
+                        pass
+                    else:
+                        return "/".join(conf2str(cnf.value) for cnf in confidences)
+                    if clade.confidence is not None:
+                        return conf2str(clade.confidence)
+                    return None
+
+            else:
+
+                def format_branch_label(clade):
+                    return None
+
+        elif isinstance(branch_labels, dict):
+
+            def format_branch_label(clade):
+                return branch_labels.get(clade)
+
+        else:
+            if not callable(branch_labels):
+                raise TypeError(
+                    "branch_labels must be either a dict or a callable (function)"
+                )
+            format_branch_label = branch_labels
+
+        # options for displaying label colors.
+        if label_colors:
+            if callable(label_colors):
+
+                def get_label_color(label):
+                    return label_colors(label)
+
+            else:
+                # label_colors is presumed to be a dictPhylo.draw(self.tree, axes=ax_tree)
+                def get_label_color(label):
+                    return label_colors.get(label, "black")
+
+        else:
+
+            def get_label_color(label):
+                # if label_colors is not specified, use black
+                return "black"
+                
+        def getCladesToCollapse():
+            cladesToCollapse = []
+            cnt = 0
+            for clade in tree.find_clades():
+                for elem in nodes_to_collapse:
+                    idx = self.collapsed_indices[elem.root]
+                    if cnt == idx:
+                        cladesToCollapse.append(clade)
+                        break
+                cnt += 1
+            return cladesToCollapse
+            
+        cladesToCollapse = getCladesToCollapse()
+                
+        # Check clades to collapse
+        def checkCollapsedClades(clade):
+            collapsed = False
+            check = False
+            found = False
+            if clade in cladesToCollapse:
+                collapsed = True
+            clades_to_collapse[clade] = [collapsed, None]
+            if collapsed:
+                # Collapse all sub-clades
+                for elem in clade.find_clades():
+                    if elem not in clades_to_collapse:
+                        clades_to_collapse[elem] = [True, clade]
+
+        # Dict containing a flag for each clade indicating whether or not it will be collapsed
+        cnt = 0
+        for clade in tree.find_clades():
+            if clade not in clades_to_collapse:
+                checkCollapsedClades(clade)
+            cnt += 1
+
+        # Layout
+        
+        def get_xy_positions(tree):
+            x = {}
+            y = {}
+            # Compute the list of visible clades and the list of visible collapsed clades
+            visible_collapsed = []
+            visible = []
+            for elem in clades_to_collapse:
+                flag, parent = clades_to_collapse[elem]
+                if parent is None:
+                    visible.append(elem)
+                    if flag:
+                        visible_collapsed.append(elem)
+            
+            depths = tree.depths()
+            # If there are no branch lengths, assume unit branch lengths
+            if not max(depths.values()):
+                depths = tree.depths(unit_branch_lengths=True)
+            for elem in depths:
+                if elem in visible:
+                    x[elem] = depths[elem]
+            
+            # Compute the list of visible leaves in the tree
+            visible_leaves = []
+            leaves = tree.get_terminals()
+            for leaf in leaves:
+                if leaf in visible:
+                    visible_leaves.append(leaf)
+            
+            # Height of the collapsed tree depends on the number of visible leaves and visible collapsed clades
+            maxheight = len(visible_leaves) + len(visible_collapsed)
+            visible_nodes = []
+            all_clades = tree.find_clades()
+            for elem in all_clades:
+                if elem in visible_leaves or elem in visible_collapsed:
+                    visible_nodes.append(elem)
+                    
+            # Rows are defined by the tips
+            heights = {tip: maxheight - i for i, tip in enumerate(reversed(visible_nodes))}#tree.get_terminals()))}
+            
+            # Compute visible sub-clades for each visible clade
+            visible_subclades = {}
+            for elem in visible:
+                subclades = []
+                for sclade in elem.clades:
+                    if sclade in visible:
+                        subclades.append(sclade)
+                visible_subclades[elem] = subclades
+
+            # Internal nodes: place at midpoint of children
+            def calc_row(clade):
+                try:
+                    subclades = visible_subclades[clade]
+                except:
+                    clade_leaves = clade.get_terminals()
+                    subclades = []
+                    for leaf in clade_leaves:
+                        if leaf in visible_nodes:
+                            subclades.append(leaf)
+                for subclade in subclades:
+                    if subclade not in heights:
+                        calc_row(subclade)
+                # Closure over heights
+                if len(subclades) > 1:
+                    heights[clade] = (heights[subclades[0]] + heights[subclades[-1]]) / 2.0
+                else:
+                    heights[clade] = heights[subclades[0]]
+                
+            calc_row(tree.root)
+            
+            y = heights
+
+            return x, y, visible, maxheight
+
+        x_posns, y_posns, visible_clades, max_height = get_xy_positions(tree)
+        # The function draw_clade closes over the axes object
+        if axes is None:
+            fig = plt.figure()
+            axes = fig.add_subplot(1, 1, 1)
+        elif not isinstance(axes, plt.matplotlib.axes.Axes):
+            raise ValueError(f"Invalid argument for axes: {axes}")
+
+        def draw_clade_lines(
+            use_linecollection=False,
+            orientation="horizontal",
+            y_here=0,
+            x_start=0,
+            x_here=0,
+            y_bot=0,
+            y_top=0,
+            color="black",
+            lw=".1",
+        ):
+
+            if not use_linecollection and orientation == "horizontal":
+                axes.hlines(y_here, x_start, x_here, color=color, lw=lw)
+            elif use_linecollection and orientation == "horizontal":
+                horizontal_linecollections.append(
+                    mpcollections.LineCollection(
+                        [[(x_start, y_here), (x_here, y_here)]], color=color, lw=lw
+                    )
+                )
+            elif not use_linecollection and orientation == "vertical":
+                axes.vlines(x_here, y_bot, y_top, color=color)
+            elif use_linecollection and orientation == "vertical":
+                vertical_linecollections.append(
+                    mpcollections.LineCollection(
+                        [[(x_here, y_bot), (x_here, y_top)]], color=color, lw=lw
+                    )
+                )
+
+        def draw_clade(clade, x_start, color, lw):
+            """Recursively draw a tree, down from the given clade."""
+            x_here = x_posns[clade]
+            y_here = y_posns[clade]
+            draw = True
+            flag, _ = clades_to_collapse[clade]
+            if flag:
+                # Add a circle (clickable)
+                circle = plt.Circle((x_here, y_here), 0.25, color=clade.color.to_hex())
+                axes.add_patch(circle)
+                # Draw a horizontal line from start to here
+                draw_clade_lines(
+                    use_linecollection=True,
+                    orientation="horizontal",
+                    y_here=y_here,
+                    x_start=x_start,
+                    x_here=x_here,
+                    color=clade.color.to_hex(),
+                    lw=lw,
+                )
+                draw = False
+            if draw:
+                # phyloXML-only graphics annotations
+                if hasattr(clade, "color") and clade.color is not None:
+                    color = clade.color.to_hex()
+                if hasattr(clade, "width") and clade.width is not None:
+                    lw = clade.width * plt.rcParams["lines.linewidth"]
+                # Draw a horizontal line from start to here
+                draw_clade_lines(
+                    use_linecollection=True,
+                    orientation="horizontal",
+                    y_here=y_here,
+                    x_start=x_start,
+                    x_here=x_here,
+                    color=color,
+                    lw=lw,
+                )
+                if clade.clades:
+                    subclades = []
+                    for subclade in clade.clades:
+                        if subclade in visible_clades:
+                            subclades.append(subclade)
+                    # Draw a vertical line connecting all children
+                    y_top = y_posns[subclades[0]]
+                    y_bot = y_posns[subclades[-1]]
+                    # Only apply widths to horizontal lines, like Archaeopteryx
+                    draw_clade_lines(
+                        use_linecollection=True,
+                        orientation="vertical",
+                        x_here=x_here,
+                        y_bot=y_bot,
+                        y_top=y_top,
+                        color=color,
+                        lw=lw,
+                    )
+                    # Draw descendents
+                    for child in subclades:
+                        draw_clade(child, x_here, color, lw)
+
+        draw_clade(tree.root, 0, "k", plt.rcParams["lines.linewidth"])
+        
+
+        # If line collections were used to create clade lines, here they are added
+        # to the pyplot plot.
+        for i in horizontal_linecollections:
+            axes.add_collection(i)
+        for i in vertical_linecollections:
+            axes.add_collection(i)
+
+        # Aesthetics
+
+        try:
+            name = tree.name
+        except AttributeError:
+            pass
+        else:
+            if name:
+                axes.set_title(name)
+        axes.set_xlabel("branch length")
+        axes.set_ylabel("taxa")
+        # Add margins around the tree to prevent overlapping the axes
+        xmax = max(x_posns.values())
+        axes.set_xlim(-0.05 * xmax, 1.25 * xmax)
+        # Also invert the y-axis (origin at the top)
+        # Add a small vertical margin, but avoid including 0 and N+1 on the y axis
+        if y_max > max_height:
+            y_max = max_height
+        axes.set_ylim(y_max, y_min)#max(y_posns.values()) + 0.8, 0.2)
+        
+        # CHECK ON HEIGHT
+
+        # Parse and process key word arguments as pyplot options
+        for key, value in kwargs.items():
+            try:
+                # Check that the pyplot option input is iterable, as required
+                list(value)
+            except TypeError:
+                raise ValueError(
+                    'Keyword argument "%s=%s" is not in the format '
+                    "pyplot_option_name=(tuple), pyplot_option_name=(tuple, dict),"
+                    " or pyplot_option_name=(dict) " % (key, value)
+                ) from None
+            if isinstance(value, dict):
+                getattr(plt, str(key))(**dict(value))
+            elif not (isinstance(value[0], tuple)):
+                getattr(plt, str(key))(*value)
+            elif isinstance(value[0], tuple):
+                getattr(plt, str(key))(*value[0], **dict(value[1]))
+
+        if do_show:
+            plt.show()
 
     ##########################################################################
     # GUI plotTree: plot tree (detailed)
@@ -1440,11 +2160,12 @@ class PysageGUI(object):
                 i += 1
         
         # the figure that will contain the plot 
-        fig = Figure(figsize = (10, 10), dpi = 100, constrained_layout=True)
+        self.fig = Figure(figsize = (10, 10), dpi = 100, constrained_layout=True)
         matplotlib.rc('font', size=6)
-        fig.canvas.mpl_connect('button_press_event', self.expandSubTree)
+        self.fig.canvas.mpl_connect('button_press_event', self.expandSubTree)
+
         # adding the subplot 
-        self.ax_tree = fig.add_subplot(1, 1, 1)
+        self.ax_tree = self.fig.add_subplot(1, 1, 1)
         # containing the Matplotlib figure 
         matplotlib.rcParams["lines.linewidth"] = 0.5
         # Create a copy of the tree
@@ -1514,7 +2235,7 @@ class PysageGUI(object):
             ax_seq.legend(plts, self.hors, loc='best', bbox_to_anchor=(0.5, -0.25), ncols=nc) # Legend's location must be fine-tuned
         """
         # Create the canvas
-        self.tree_canvas = FigureCanvasTkAgg(fig, master=self.w)
+        self.tree_canvas = FigureCanvasTkAgg(self.fig, master=self.w)
         self.tree_canvas.draw()
         self.other_canvas = FigureCanvasTkAgg(other_fig, master=self.z)
         self.other_canvas.draw()
@@ -1609,11 +2330,18 @@ class PysageGUI(object):
             self.ax_tree.clear()
             if self.axes_ins is not None:
                 self.axes_ins.remove()
+            if self.ax_tree_ins is not None:
+                for elem in self.ax_tree_ins:
+                    elem.remove()
+                self.ax_tree_ins = []
             treeToPlot = copy.deepcopy(self.tree)
             # Plot the collapsed tree
             self.drawCollapsedTree(treeToPlot, axes=self.ax_tree)#self.tree, axes=self.ax_tree)
             self.ax_tree.get_yaxis().set_visible(False)
             self.tree_canvas.draw()
+            # Unset list
+            self.zoomed_nodes = []
+            self.zoomed_coords = []
             # Set zoom flag to false
             self.zoomed = False
         else:
@@ -1656,11 +2384,13 @@ class PysageGUI(object):
         self.load_file = tk.Button(self.toolbar, text="LoadFile", command=lambda: self.loadFile(filename=self.filename))
         self.plot_tree = tk.Button(self.toolbar, text="PlotTree", command=lambda: self.plotTree())
         self.show_data = tk.Button(self.toolbar, text="ShowData", command=lambda: self.showData())
+        self.zoom_in = tk.Button(self.toolbar, text="ZoomIn", command=lambda: self.zoomIn())
         self.zoom_out = tk.Button(self.toolbar, text="ZoomOut", command=lambda: self.zoomOut())
         self.refresh_win = tk.Button(self.toolbar, text="Refresh", command=lambda: self.refresh())
         self.load_file.pack(side='left')
         self.plot_tree.pack(side='left')
         self.show_data.pack(side='left')
+        self.zoom_in.pack(side='left')
         self.zoom_out.pack(side='left')
         self.refresh_win.pack(side='left')
         # Create frame where the monomers' tree will be displayed
