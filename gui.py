@@ -531,6 +531,7 @@ class PysageGUI(object):
             
         # Create list of nodes to expand
         nodes_to_expand = self.zoomed_nodes#[elem.root for elem in self.zoomed_nodes]
+        nodes_to_highlight = []
         nodes_to_collapse = []
         coords_to_collapse = []
         keys = list(self.collapsed_clades.keys())
@@ -539,6 +540,8 @@ class PysageGUI(object):
             if cclade not in self.zoomed_nodes:
                 nodes_to_collapse.append(cclade)
                 coords_to_collapse.append(elem)
+            else:
+                nodes_to_highlight.append(cclade)
         coords_to_expand = self.zoomed_coords
 
         ymax = self.treeForSubPlot.count_terminals() + 0.8
@@ -565,7 +568,7 @@ class PysageGUI(object):
         
         #print(slider_position.val)
         
-        self.drawTreePart(self.treeForSubPlot, nodes_to_collapse=nodes_to_collapse, coords_to_collapse=coords_to_collapse, y_min=ymin, y_max=ymin + yrange, axes=ax_tree_ins)#Phylo.draw(self.treeForSubPlot, axes=ax_tree_ins)#self.ax_tree)#es_ins)
+        self.drawTreePart(self.treeForSubPlot, nodes_to_highlight=nodes_to_highlight, nodes_to_collapse=nodes_to_collapse, coords_to_collapse=coords_to_collapse, y_min=ymin, y_max=ymin + yrange, axes=ax_tree_ins)#Phylo.draw(self.treeForSubPlot, axes=ax_tree_ins)#self.ax_tree)#es_ins)
         #self.drawTreePartOld(self.treeForSubPlot, y_min=ymin, y_max=ymin + yrange, axes=ax_tree_ins)
         
         # update() function to change the graph when the slider is in use
@@ -585,7 +588,7 @@ class PysageGUI(object):
             if top_y > ymax:
                 top_y = ymax
                 bottom_y = ymax - yrange#ydiff
-            self.drawTreePart(self.treeForSubPlot, nodes_to_collapse=nodes_to_collapse, coords_to_collapse=coords_to_collapse, y_min=bottom_y, y_max=top_y, axes=ax_tree_ins)
+            self.drawTreePart(self.treeForSubPlot, nodes_to_highlight=nodes_to_highlight, nodes_to_collapse=nodes_to_collapse, coords_to_collapse=coords_to_collapse, y_min=bottom_y, y_max=top_y, axes=ax_tree_ins)
             #self.drawTreePartOld(self.treeForSubPlot, y_min=bottom_y, y_max=top_y, axes=ax_tree_ins)
             print("done")
         
@@ -1437,6 +1440,7 @@ class PysageGUI(object):
     # Copy of Phylo.draw() used to show part of the tree
     def drawTreePart(self, 
         tree,
+        nodes_to_highlight = None,
         nodes_to_collapse = None,
         coords_to_collapse = None,
         y_min = None,
@@ -1527,8 +1531,21 @@ class PysageGUI(object):
                 cnt += 1
             return cladesToCollapse
             
+        def getCladesToHighlight():
+            cladesToHighlight = []
+            cnt = 0
+            for clade in tree.find_clades():
+                for elem in nodes_to_highlight:
+                    idx = self.collapsed_indices[elem.root]
+                    if cnt == idx:
+                        cladesToHighlight.append(clade)
+                        break
+                cnt += 1
+            return cladesToHighlight
+            
         cladesToCollapse = getCladesToCollapse()
-                
+        cladesToHighlight = getCladesToHighlight()
+                  
         # Check clades to collapse
         def checkCollapsedClades(clade):
             collapsed = False
@@ -1624,8 +1641,33 @@ class PysageGUI(object):
             y = heights
 
             return x, y, visible, maxheight
-
+            
         x_posns, y_posns, visible_clades, max_height = get_xy_positions(tree)
+        
+        # Now compute depth and height of all sub-trees to highlight
+        subtreesToHighlight = {}
+        for clade in cladesToHighlight:
+            xmax = -1e10
+            subtree = PX.Phylogeny(root=clade, name=clade.name)
+            xpos, _, _, _ = get_xy_positions(subtree)
+            for xelem in xpos:
+                x = xpos[xelem]
+                if x > xmax:
+                    xmax = x
+            ymin = 1e10
+            ymax = -1e10
+            subclades = clade.find_clades()
+            for subclade in subclades:
+                ypos = y_posns[subclade]
+                if ypos < ymin:
+                    ymin = ypos
+                if ypos > ymax:
+                    ymax = ypos
+            #print(xmax, ymin, ymax)
+            subtreesToHighlight[clade] = (xmax, ymin, ymax)
+        #sys.exit()    
+            
+
         # The function draw_clade closes over the axes object
         if axes is None:
             fig = plt.figure()
@@ -1672,7 +1714,7 @@ class PysageGUI(object):
                 # Add a circle (clickable)
                 circle = plt.Circle((x_here, y_here), 0.25, color=clade.color.to_hex())
                 axes.add_patch(circle)
-                # Draw a horizontal line from start to here
+                # Draw a horwidthizontal line from start to here
                 draw_clade_lines(
                     use_linecollection=True,
                     orientation="horizontal",
@@ -1720,9 +1762,14 @@ class PysageGUI(object):
                     # Draw descendents
                     for child in subclades:
                         draw_clade(child, x_here, color, lw)
+                        
+                if clade in subtreesToHighlight:
+                    sizes = subtreesToHighlight[clade]
+                    width, height_min, height_max = tuple(sizes)
+                    rect = patches.Rectangle((x_start, height_min), width, height_max - height_min, color='#D3D3D3')
+                    axes.add_patch(rect)
 
         draw_clade(tree.root, 0, "k", plt.rcParams["lines.linewidth"])
-        
 
         # If line collections were used to create clade lines, here they are added
         # to the pyplot plot.
@@ -1747,11 +1794,9 @@ class PysageGUI(object):
         axes.set_xlim(-0.05 * xmax, 1.25 * xmax)
         # Also invert the y-axis (origin at the top)
         # Add a small vertical margin, but avoid including 0 and N+1 on the y axis
-        if y_max > max_height:
+        if y_max > max_height or abs(max_height - y_max) < 100.0:
             y_max = max_height
         axes.set_ylim(y_max, y_min)#max(y_posns.values()) + 0.8, 0.2)
-        
-        # CHECK ON HEIGHT
 
         # Parse and process key word arguments as pyplot options
         for key, value in kwargs.items():
