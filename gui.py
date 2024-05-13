@@ -275,6 +275,7 @@ class PysageGUI(object):
         isIn = False
         omono = None
         for elem in self.clicked:
+            print(mono, hor, elem)
             if elem != hor:
                 mono_and_locs = self.hor_dict[elem]
                 monomers = mono_and_locs[0]
@@ -287,6 +288,9 @@ class PysageGUI(object):
                                 isIn = True
                                 omono = cmono
                                 break
+            if isIn:
+                break
+        print(isIn, omono)
         return isIn, omono
         
     ##########################################################################
@@ -306,10 +310,21 @@ class PysageGUI(object):
             mono_colors = []
             new_monomers = []
             mod = False
+            checked = {}
             # Color clades associated to monomers
             for mono in monomers:
-                #print(hor, mono)
-                isInOtherHor, otherMono = self.checkMonomerInOtherHORs(mono, hor)
+                found = True
+                check_vals = None
+                try:
+                    check_vals = checked[mono]
+                except:
+                    found = False
+                if found:
+                    isInOtherHor = check_vals[0]
+                    otherMono = check_vals[1]
+                else:
+                    isInOtherHor, otherMono = self.checkMonomerInOtherHORs(mono, hor)
+                    checked[mono] = [isInOtherHor, otherMono]
                 if isInOtherHor:
                     new_monomers.append(otherMono)
                     mod = True
@@ -340,6 +355,7 @@ class PysageGUI(object):
                 locations.append([int(rel_start), int(rel_end), strand])
             # Sort locations
             locations.sort()
+            print(new_monomers)
             # Insert information in the corresponding lists
             new_hor = hor
             if mod:
@@ -351,6 +367,10 @@ class PysageGUI(object):
                 # Change the name of the HOR in clicked
                 hor_id = self.clicked.index(hor)
                 self.clicked[hor_id] = new_hor
+                # Add new entry in the HOR dict
+                self.hor_dict[new_hor] = [new_monomers, mono_locs]
+                # Add new entry in the HORs
+                print(new_hor)
             self.hors.append(new_hor)
             self.monomers.append(new_monomers)
             self.locations.append(locations)
