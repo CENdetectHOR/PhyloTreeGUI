@@ -87,6 +87,7 @@ class PysageGUI(object):
         self.hor_tree_backup = None
         self.hor_root = None
         self.hor_dict = None
+        self.hor_lengths = None
         # Chromosome sequence (start and end)
         self.chr_seq = None
         self.seq_name = None
@@ -152,6 +153,7 @@ class PysageGUI(object):
         all_clades = self.hor_tree.find_clades()
         # Build dict associating to each HOR the corresponding list of monomer(s)
         self.hor_dict = {}
+        self.hor_lengths = {}
         cnt = 0
         for clade in all_clades:
             if cnt == 0:
@@ -201,6 +203,7 @@ class PysageGUI(object):
                     prop.value = new_value
                     # Store monomers and locations for this HOR
                     self.hor_dict[clade.name] = [new_monos, [seq.location for seq in clade.sequences if clade.sequences is not None]]
+                    self.hor_lengths[clade.name] = len(new_monos)
                     if len(new_monos) > self.hor_len:
                         self.hor_len = len(new_monos)
      
@@ -265,6 +268,26 @@ class PysageGUI(object):
         else:
             self.popupMsg("You must select the file before loading!!!")
             return
+            
+    ##########################################################################
+    # Method that returns the HORs
+    def checkMonomerInOtherHORs(self, mono, hor):
+        isIn = False
+        omono = None
+        for elem in self.clicked:
+            if elem != hor:
+                mono_and_locs = self.hor_dict[elem]
+                monomers = mono_and_locs[0]
+                for cmono in monomers:
+                    clades = self.tree.find_clades(cmono)
+                    for clade in clades:
+                        subclades = clade.find_clades()
+                        for sclade in subclades:
+                            if sclade.name and sclade.name == mono:
+                                isIn = True
+                                omono = cmono
+                                break
+        return isIn, omono
         
     ##########################################################################
     # Method that returns the HORs
@@ -275,17 +298,26 @@ class PysageGUI(object):
         self.locations = []
         self.monomer_colors = []
         elem = 0
-        #print(self.clicked)
         for hor in self.clicked:
             # Extract monomers and locations
             mono_and_locs = self.hor_dict[hor]
             monomers = mono_and_locs[0]
             mono_locs = mono_and_locs[1]
             mono_colors = []
+            new_monomers = []
+            mod = False
             # Color clades associated to monomers
             for mono in monomers:
+                #print(hor, mono)
+                isInOtherHor, otherMono = self.checkMonomerInOtherHORs(mono, hor)
+                if isInOtherHor:
+                    new_monomers.append(otherMono)
+                    mod = True
+                else:
+                    new_monomers.append(mono)
                 clades = self.tree.find_clades(mono)
                 for clade in clades:
+                    #print(hor, mono, clade.color.to_hex())
                     if clade.color.to_hex() == "#000000":
                         clade.color = PX.BranchColor.from_name(self.colors[elem % len(self.colors)])
                         elem += 1
@@ -309,8 +341,18 @@ class PysageGUI(object):
             # Sort locations
             locations.sort()
             # Insert information in the corresponding lists
-            self.hors.append(hor)
-            self.monomers.append(monomers)
+            new_hor = hor
+            if mod:
+                # Modify HOR name for visualization
+                hor_len = self.hor_lengths[hor]
+                new_hor = str(hor_len)
+                for mono in new_monomers:
+                    new_hor += mono
+                # Change the name of the HOR in clicked
+                hor_id = self.clicked.index(hor)
+                self.clicked[hor_id] = new_hor
+            self.hors.append(new_hor)
+            self.monomers.append(new_monomers)
             self.locations.append(locations)
             self.monomer_colors.append(mono_colors)
         
