@@ -109,6 +109,7 @@ class PysageGUI(object):
         self.clicked_colors = None
         self.num_clicked = 0
         self.patches = None
+        self.shown = False
         # Nodes to be collapsed and relative information
         self.clades_to_collapse = {}
         self.collapsed_clades = {}
@@ -1661,6 +1662,9 @@ class PysageGUI(object):
         if self.tree is None:
             self.popupMsg("You must load the phyloXML file before plotting!!!")
             return
+        if self.shown:
+            self.popupMsg("You have already shown data!!!")
+            return
         if self.tree_canvas is not None:
             self.tree_canvas.get_tk_widget().destroy()
         if self.other_canvas is not None:
@@ -1984,6 +1988,8 @@ class PysageGUI(object):
         self.other_canvas.get_tk_widget().pack() 
         self.master.update()
         self.master.update_idletasks()
+        # Set flag to true
+        self.shown = True
         
     ##########################################################################    
     # Zoom out
@@ -2021,6 +2027,7 @@ class PysageGUI(object):
         # Reset number of clicked items
         self.clicked = []
         self.num_clicked = 0
+        self.shown = False
         self.canvas.draw()
         # Delete visualization of other figures (i.e., HORs, sequence and monomers' tree)
         if self.tree_canvas is not None:
