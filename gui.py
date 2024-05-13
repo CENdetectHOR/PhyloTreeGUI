@@ -485,18 +485,6 @@ class PysageGUI(object):
         height = 1.0 / len(self.zoomed_nodes)
         self.ax_tree_ins = []
         for elem in self.zoomed_nodes:
-            """
-            cax_tree_ins = self.ax_tree.inset_axes([start_x, start_y, width, height])
-            self.ax_tree_ins.append(cax_tree_ins)
-            treeToPlot = copy.deepcopy(elem)
-            clades = treeToPlot.find_clades()
-            for clade in clades:
-                if clade.name:
-                    clade.name = None
-            Phylo.draw(treeToPlot, axes=cax_tree_ins)
-            cax_tree_ins.get_xaxis().set_visible(False)
-            cax_tree_ins.get_yaxis().set_visible(False)
-            """
             node_colors.append(self.collapsed_colors[elem.root])
             
         self.ax_tree_ins = []
@@ -544,53 +532,37 @@ class PysageGUI(object):
                 nodes_to_highlight.append(cclade)
         coords_to_expand = self.zoomed_coords
 
+        # Compute the min and max values for y
         ymax = self.treeForSubPlot.count_terminals() + 0.8
         ymin = 0.2
+        # Compute differece between max and min
         ydiff = ymax - ymin
+        # Compute the amount of plot to be shown
         yrange = ydiff / 100.0
-        cy = ymin
-        #ax_tree_ins.get_xaxis().set_visible(False)
-        #ax_tree_ins.get_yaxis().set_visible(False)
-        
-        #ax_slider_ins.get_xaxis().set_visible(False)
-        #ax_slider_ins.get_yaxis().set_visible(False)
-        
-        #self.ax_tree.set_xlim(xmin, xmax)
-        
-        # adjust the main plot to make room for the slider
-        #self.fig.subplots_adjust(right=0.25)
         
         # Choose the Slider color
         slider_color = 'White'
-        #slider_axis = self.fig.add_axes([xmax, ymax, 0.5, ymin - ymax])
         
         slider_position = Slider(ax_slider_ins, label='', valmin=0.0, valmax=1.0, valinit=1.0, orientation="vertical")
-        
-        #print(slider_position.val)
-        
-        self.drawTreePart(self.treeForSubPlot, nodes_to_highlight=nodes_to_highlight, nodes_to_collapse=nodes_to_collapse, coords_to_collapse=coords_to_collapse, y_min=ymin, y_max=ymin + yrange, axes=ax_tree_ins)#Phylo.draw(self.treeForSubPlot, axes=ax_tree_ins)#self.ax_tree)#es_ins)
-        #self.drawTreePartOld(self.treeForSubPlot, y_min=ymin, y_max=ymin + yrange, axes=ax_tree_ins)
+
+        self.drawTreePart(self.treeForSubPlot, nodes_to_highlight=nodes_to_highlight, nodes_to_collapse=nodes_to_collapse, coords_to_collapse=coords_to_collapse, y_min=ymin, y_max=ymin + yrange, axes=ax_tree_ins)
         
         # update() function to change the graph when the slider is in use
         def update(val):
             pos = slider_position.val
-            #print(pos)
-            #self.ax_tree.axis([xmin, xmax, pos-10.0, pos])
-            #ax_tree_ins.axis([xmin, xmax, pos-10.0, pos])
-            #self.fig.canvas.draw_idle()
             
+            # Round slider position to second decimal digit
             posy = round(pos, 2)
             
+            # Compute the deltay
             dy = 1.0 - posy
-            
+            # Compute new plot y ranges (minimum and maximum)
             bottom_y = 0.2 + ydiff * dy
             top_y = bottom_y + yrange
             if top_y > ymax:
                 top_y = ymax
-                bottom_y = ymax - yrange#ydiff
+                bottom_y = ymax - yrange
             self.drawTreePart(self.treeForSubPlot, nodes_to_highlight=nodes_to_highlight, nodes_to_collapse=nodes_to_collapse, coords_to_collapse=coords_to_collapse, y_min=bottom_y, y_max=top_y, axes=ax_tree_ins)
-            #self.drawTreePartOld(self.treeForSubPlot, y_min=bottom_y, y_max=top_y, axes=ax_tree_ins)
-            print("done")
         
         # update function called using on_changed() function
         slider_position.on_changed(update)
@@ -1663,10 +1635,7 @@ class PysageGUI(object):
                     ymin = ypos
                 if ypos > ymax:
                     ymax = ypos
-            #print(xmax, ymin, ymax)
             subtreesToHighlight[clade] = (xmax, ymin, ymax)
-        #sys.exit()    
-            
 
         # The function draw_clade closes over the axes object
         if axes is None:
@@ -1766,7 +1735,7 @@ class PysageGUI(object):
                 if clade in subtreesToHighlight:
                     sizes = subtreesToHighlight[clade]
                     width, height_min, height_max = tuple(sizes)
-                    rect = patches.Rectangle((x_start, height_min), width, height_max - height_min, color='#D3D3D3')
+                    rect = patches.Rectangle((x_start, height_min), width, height_max - height_min, color='#D3D3D3') # +1 helps with colored branches???
                     axes.add_patch(rect)
 
         draw_clade(tree.root, 0, "k", plt.rcParams["lines.linewidth"])
@@ -1794,8 +1763,12 @@ class PysageGUI(object):
         axes.set_xlim(-0.05 * xmax, 1.25 * xmax)
         # Also invert the y-axis (origin at the top)
         # Add a small vertical margin, but avoid including 0 and N+1 on the y axis
+        # Check difference between max height of the tree and passed y_max
         if y_max > max_height or abs(max_height - y_max) < 100.0:
-            y_max = max_height
+            y_max = max_height + 0.8
+        # Check whether y_min is higher than max_height
+        if y_min >= max_height:
+            y_min = max_height - 150.0
         axes.set_ylim(y_max, y_min)#max(y_posns.values()) + 0.8, 0.2)
 
         # Parse and process key word arguments as pyplot options
