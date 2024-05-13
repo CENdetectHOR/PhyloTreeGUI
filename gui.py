@@ -119,6 +119,7 @@ class PysageGUI(object):
         self.zoomed = False
         self.zoomed_nodes = []
         self.zoomed_coords = []
+        # Object used to plot the highlight and scroll
         self.treeForSubPlot = None
         # Tree axis
         self.ax_tree = None
@@ -211,6 +212,7 @@ class PysageGUI(object):
             trees = []
             for i, elem in enumerate(res):
                 trees.append(elem)
+            assert len(trees) == 2, "Invalid number of data contained in phyloXML file!!!"
             # Monomers
             self.tree = trees[0]
             self.tree_backup = copy.deepcopy(self.tree)
@@ -229,7 +231,6 @@ class PysageGUI(object):
             idx = 0
             for clade in self.tree.find_clades():
                  if clade.name and "chr" not in clade.name:
-                     #print(clade.name)
                      old_names.append(clade.name)
                      new_names.append(chars[idx])
                      # Change clade name
@@ -320,10 +321,12 @@ class PysageGUI(object):
         cid = -1
         ccoord = None
         clade_keys = self.clade_coords.keys()
+        # Initialize lists of clicked nodes and colors
         if self.clicked is None:
             self.clicked = []
         if self.clicked_colors is None:
             self.clicked_colors = []
+        # Loop over patches
         found = False
         for patch in self.patches:
             center = patch.center
@@ -428,43 +431,6 @@ class PysageGUI(object):
             # Append the element to the list of nodes to zoom
             self.zoomed_nodes.append(self.collapsed_clades[elem])
             self.zoomed_coords.append(elem)
-            """
-            # We store collapsed tree to be restored
-            self.ax_tree.clear()
-            treeToPlot = copy.deepcopy(self.collapsed_clades[elem])
-            clades = treeToPlot.find_clades()
-            for clade in clades:
-                if clade.name:
-                    clade.name = None
-            Phylo.draw(treeToPlot, axes=self.ax_tree)
-            
-            # Get color of collapsed node
-            #node_idx = self.collapsed_indices[self.collapsed_clades[elem].root]
-            node_color = self.collapsed_colors[self.collapsed_clades[elem].root]
-            
-            # Add other plot inside this plot
-            self.axes_ins = inset_axes(self.ax_tree, width="20%", height="20%", loc=2) # Sub-plot in upper left corner
-            # Copy of original tree
-            treeForSubPlot = copy.deepcopy(self.tree)
-            all_clades = treeForSubPlot.find_clades()
-            cnt = 0
-            clade_root = []
-            found = False
-            for clade in all_clades:
-                if clade.color.to_hex() != node_color.to_hex() and clade.color.to_hex() != "#000000":
-                    clade.color = PX.BranchColor.from_name('black')
-                if clade.name:
-                    clade.name = None
-                cnt += 1
-            Phylo.draw(treeForSubPlot, axes=self.axes_ins)
-            self.axes_ins.get_xaxis().set_visible(False)
-            self.axes_ins.get_yaxis().set_visible(False)
-            
-            self.tree_canvas.draw()
-            
-            # Set zoom flag to true
-            self.zoomed = True
-            """
             
     ##########################################################################    
     # Zoom in
@@ -493,9 +459,6 @@ class PysageGUI(object):
         ax_slider_ins = self.ax_tree.inset_axes([0.95, 0.0, 0.05, 1.0])
         self.ax_tree_ins.append(ax_slider_ins)
             
-        # Now create global inner plot
-        # Add other plot inside this plot
-        #self.axes_ins = inset_axes(self.ax_tree, width="20%", height="20%", loc=2) # Sub-plot in upper left corner
         # Copy of original tree
         self.treeForSubPlot = copy.deepcopy(self.tree)
         all_clades = self.treeForSubPlot.find_clades()
@@ -512,13 +475,8 @@ class PysageGUI(object):
                     toColor = True
             if toColor:
                 clade.color = PX.BranchColor.from_name('black')
-            """
-            if clade.name:
-                clade.name = None
-            """
             
         # Create list of nodes to expand
-        nodes_to_expand = self.zoomed_nodes#[elem.root for elem in self.zoomed_nodes]
         nodes_to_highlight = []
         nodes_to_collapse = []
         coords_to_collapse = []
@@ -530,7 +488,6 @@ class PysageGUI(object):
                 coords_to_collapse.append(elem)
             else:
                 nodes_to_highlight.append(cclade)
-        coords_to_expand = self.zoomed_coords
 
         # Compute the min and max values for y
         ymax = self.treeForSubPlot.count_terminals() + 0.8
@@ -542,9 +499,10 @@ class PysageGUI(object):
         
         # Choose the Slider color
         slider_color = 'White'
-        
+        # Create the slider
         slider_position = Slider(ax_slider_ins, label='', valmin=0.0, valmax=1.0, valinit=1.0, orientation="vertical")
 
+        # Draw part of the tree from ymin to ymax
         self.drawTreePart(self.treeForSubPlot, nodes_to_highlight=nodes_to_highlight, nodes_to_collapse=nodes_to_collapse, coords_to_collapse=coords_to_collapse, y_min=ymin, y_max=ymin + yrange, axes=ax_tree_ins)
         
         # update() function to change the graph when the slider is in use
@@ -554,7 +512,7 @@ class PysageGUI(object):
             # Round slider position to second decimal digit
             posy = round(pos, 2)
             
-            # Compute the deltay
+            # Compute the delta y
             dy = 1.0 - posy
             # Compute new plot y ranges (minimum and maximum)
             bottom_y = 0.2 + ydiff * dy
@@ -562,6 +520,7 @@ class PysageGUI(object):
             if top_y > ymax:
                 top_y = ymax
                 bottom_y = ymax - yrange
+            # Draw updated part of the tree from ymin to ymax
             self.drawTreePart(self.treeForSubPlot, nodes_to_highlight=nodes_to_highlight, nodes_to_collapse=nodes_to_collapse, coords_to_collapse=coords_to_collapse, y_min=bottom_y, y_max=top_y, axes=ax_tree_ins)
         
         # update function called using on_changed() function
@@ -1176,237 +1135,6 @@ class PysageGUI(object):
             plt.show()
             
         self.collapsed_patches = axes.patches
-        
-    ##########################################################################
-    # Copy of Phylo.draw() used to show part of the tree
-    def drawTreePartOld(self, 
-        tree,
-        y_min = None,
-        y_max = None,
-        label_func=str,
-        do_show=True,
-        show_confidence=True,
-        # For power users
-        axes=None,
-        branch_labels=None,
-        label_colors=None,
-        *args,
-        **kwargs,
-    ):
-    
-        # Arrays that store lines for the plot of clades
-        horizontal_linecollections = []
-        vertical_linecollections = []
-
-        # Options for displaying branch labels / confidence
-        def conf2str(conf):
-            if int(conf) == conf:
-                return str(int(conf))
-            return str(conf)
-
-        if not branch_labels:
-            if show_confidence:
-
-                def format_branch_label(clade):
-                    try:
-                        confidences = clade.confidencesPhylo.draw
-                        # phyloXML supports multiple confidences
-                    except AttributeError:
-                        pass
-                    else:
-                        return "/".join(conf2str(cnf.value) for cnf in confidences)
-                    if clade.confidence is not None:
-                        return conf2str(clade.confidence)
-                    return None
-
-            else:
-
-                def format_branch_label(clade):
-                    return None
-
-        elif isinstance(branch_labels, dict):
-
-            def format_branch_label(clade):
-                return branch_labels.get(clade)
-
-        else:
-            if not callable(branch_labels):
-                raise TypeError(
-                    "branch_labels must be either a dict or a callable (function)"
-                )
-            format_branch_label = branch_labels
-
-        # options for displaying label colors.
-        if label_colors:
-            if callable(label_colors):
-
-                def get_label_color(label):
-                    return label_colors(label)
-
-            else:
-                # label_colors is presumed to be a dictPhylo.draw(self.tree, axes=ax_tree)
-                def get_label_color(label):
-                    return label_colors.get(label, "black")
-
-        else:
-
-            def get_label_color(label):
-                # if label_colors is not specified, use black
-                return "black"
-
-        # Layout
-
-        def get_x_positions(tree):
-            depths = tree.depths()
-            # If there are no branch lengths, assume unit branch lengths
-            if not max(depths.values()):
-                depths = tree.depths(unit_branch_lengths=True)
-            return depths
-
-        def get_y_positions(tree):
-            maxheight = tree.count_terminals()
-            # Rows are defined by the tips
-            heights = {tip: maxheight - i for i, tip in enumerate(reversed(tree.get_terminals()))}
-
-            # Internal nodes: place at midpoint of children
-            def calc_row(clade):
-                for subclade in clade:
-                    if subclade not in heights:
-                        calc_row(subclade)
-                # Closure over heights
-                heights[clade] = (heights[clade.clades[0]] + heights[clade.clades[-1]]) / 2.0
-
-            if tree.root.clades:
-                calc_row(tree.root)
-            return heights
-
-        x_posns = get_x_positions(tree)
-        y_posns = get_y_positions(tree)
-        # The function draw_clade closes over the axes object
-        if axes is None:
-            fig = plt.figure()
-            axes = fig.add_subplot(1, 1, 1)
-        elif not isinstance(axes, plt.matplotlib.axes.Axes):
-            raise ValueError(f"Invalid argument for axes: {axes}")
-
-        def draw_clade_lines(
-            use_linecollection=False,
-            orientation="horizontal",
-            y_here=0,
-            x_start=0,
-            x_here=0,
-            y_bot=0,
-            y_top=0,
-            color="black",
-            lw=".1",
-        ):
-
-            if not use_linecollection and orientation == "horizontal":
-                axes.hlines(y_here, x_start, x_here, color=color, lw=lw)
-            elif use_linecollection and orientation == "horizontal":
-                horizontal_linecollections.append(
-                    mpcollections.LineCollection(
-                        [[(x_start, y_here), (x_here, y_here)]], color=color, lw=lw
-                    )
-                )
-            elif not use_linecollection and orientation == "vertical":
-                axes.vlines(x_here, y_bot, y_top, color=color)
-            elif use_linecollection and orientation == "vertical":
-                vertical_linecollections.append(
-                    mpcollections.LineCollection(
-                        [[(x_here, y_bot), (x_here, y_top)]], color=color, lw=lw
-                    )
-                )
-        
-        #print(self.clades_to_collapse)
-        #print(len(list(self.clades_to_collapse.keys())))
-        #sys.exit()
-
-        def draw_clade(clade, x_start, color, lw):
-            """Recursively draw a tree, down from the given clade."""
-            x_here = x_posns[clade]
-            y_here = y_posns[clade]
-            # phyloXML-only graphics annotations
-            if hasattr(clade, "color") and clade.color is not None:
-                color = clade.color.to_hex()
-            if hasattr(clade, "width") and clade.width is not None:
-                lw = clade.width * plt.rcParams["lines.linewidth"]
-            # Draw a horizontal line from start to here
-            draw_clade_lines(
-                use_linecollection=True,
-                orientation="horizontal",
-                y_here=y_here,
-                x_start=x_start,
-                x_here=x_here,
-                color=color,
-                lw=lw,
-            )
-            if clade.clades:
-                # Draw a vertical line connecting all children
-                y_top = y_posns[clade.clades[0]]
-                y_bot = y_posns[clade.clades[-1]]
-                # Only apply widths to horizontal lines, like Archaeopteryx
-                draw_clade_lines(
-                    use_linecollection=True,
-                    orientation="vertical",
-                    x_here=x_here,
-                    y_bot=y_bot,
-                    y_top=y_top,
-                    color=color,
-                    lw=lw,
-                )
-                # Draw descendents
-                for child in clade:
-                    draw_clade(child, x_here, color, lw)
-
-        draw_clade(tree.root, 0, "k", plt.rcParams["lines.linewidth"])
-        
-
-        # If line collections were used to create clade lines, here they are added
-        # to the pyplot plot.
-        for i in horizontal_linecollections:
-            axes.add_collection(i)
-        for i in vertical_linecollections:
-            axes.add_collection(i)
-
-        # Aesthetics
-
-        try:
-            name = tree.name
-        except AttributeError:
-            pass
-        else:
-            if name:
-                axes.set_title(name)
-        axes.set_xlabel("branch length")
-        axes.set_ylabel("taxa")
-        # Add margins around the tree to prevent overlapping the axes
-        xmax = max(x_posns.values())
-        axes.set_xlim(-0.05 * xmax, 1.25 * xmax)
-        # Also invert the y-axis (origin at the top)
-        # Add a small vertical margin, but avoid including 0 and N+1 on the y axis
-        axes.set_ylim(y_max, y_min)#max(y_posns.values()) + 0.8, 0.2)
-
-        # Parse and process key word arguments as pyplot options
-        for key, value in kwargs.items():
-            try:
-                # Check that the pyplot option input is iterable, as required
-                list(value)
-            except TypeError:
-                raise ValueError(
-                    'Keyword argument "%s=%s" is not in the format '
-                    "pyplot_option_name=(tuple), pyplot_option_name=(tuple, dict),"
-                    " or pyplot_option_name=(dict) " % (key, value)
-                ) from None
-            if isinstance(value, dict):
-                getattr(plt, str(key))(**dict(value))
-            elif not (isinstance(value[0], tuple)):
-                getattr(plt, str(key))(*value)
-            elif isinstance(value[0], tuple):
-                getattr(plt, str(key))(*value[0], **dict(value[1]))
-
-        if do_show:
-            plt.show()
             
     ##########################################################################
     # Copy of Phylo.draw() used to show part of the tree
@@ -2245,13 +1973,7 @@ class PysageGUI(object):
                     ax_seq.annotate("", (loc[1], 1.25), (loc[0], 1.25), xycoords=trans, arrowprops=dict(arrowstyle='<|-'))#width=1))
             if cplt is not None:
                 plts.append(cplt)
-            
-        """
-        if len(plts) > 0:
-            # Add legend
-            nc = 1
-            ax_seq.legend(plts, self.hors, loc='best', bbox_to_anchor=(0.5, -0.25), ncols=nc) # Legend's location must be fine-tuned
-        """
+
         # Create the canvas
         self.tree_canvas = FigureCanvasTkAgg(self.fig, master=self.w)
         self.tree_canvas.draw()
@@ -2262,82 +1984,6 @@ class PysageGUI(object):
         self.other_canvas.get_tk_widget().pack() 
         self.master.update()
         self.master.update_idletasks()
-        """
-        # Build output BED filename (there is one file for each level/cut)
-        filename = os.path.splitext(self.filename)[0]
-        outfile = filename + "_"
-        for hor in self.hors:
-            outfile += hor + "-"
-        outfile = outfile[:-1]
-        outfile += ".bed"
-        fp = open(os.path.join(self.folder, outfile), "w")
-        # Write data
-        rows = len(bed_data)
-        # First row
-        cdata = bed_data[0]
-        cols = len(cdata)
-        assert cols == 4, "Inconsistent data length {%d}!".format(cols)
-        # Header
-        fp.write("track name=\"ItemRGBDemo\" description=\"Item RGB demonstration\" itemRgb=\"On\"\n")
-        if cdata[0] != 0:
-            fp.write("%s\t%d\t%d\tmono\t0\t+\t%d\t%d\t0,0,0\n" % (self.seq_name, abs_start, abs_start + cdata[0], abs_start, abs_start + cdata[0]))
-        # Get index of HOR in list in order to retrieve the corresponding color
-        idx = -1
-        cnt = 0
-        found = False
-        for mono_str in monomer_string:
-            if cdata[2] == mono_str:
-                found = True
-                idx = cnt
-                break
-            cnt += 1
-        if found:
-            # Extract the color
-            ccolor = self.hor_colors[idx % len(self.hor_colors)]
-            # Convert the color string into RGB (values bounded in the range [0,1])
-            red, green, blue = mcolors.to_rgb(ccolor)
-            # Adjust red, green and blue in the range [0,255]
-            red = int(red * 255)
-            green = int(green * 255)
-            blue = int(blue * 255)
-            fp.write("%s\t%d\t%d\t%s\t0\t%s\t%d\t%d\t%d,%d,%d\n" % (self.seq_name, abs_start + cdata[0], abs_start + cdata[1], cdata[2], cdata[3], abs_start + cdata[0], abs_start + cdata[1], red, green, blue))
-        else:
-            fp.write("%s\t%d\t%d\t%s\t0\t%s\t%d\t%d\t0,0,0\n" % (self.seq_name, abs_start + cdata[0], abs_start + cdata[1], cdata[2], cdata[3], abs_start + cdata[0], abs_start + cdata[1]))
-        # Other rows
-        row = 1
-        while row < rows:
-            # Get current data
-            cdata = bed_data[row]
-            cols = len(cdata)
-            assert cols == 4, "Inconsistent data length {%d}!".format(cols)
-            # Get index of HOR in list in order to retrieve the corresponding color
-            idx = -1
-            cnt = 0
-            found = False
-            for mono_str in monomer_string:
-                if cdata[2] == mono_str:
-                    found = True
-                    idx = cnt
-                    break
-                cnt += 1
-            if found:
-                # Extract the color
-                ccolor = self.hor_colors[idx % len(self.hor_colors)]
-                # Convert the color string into RGB (values bounded in the range [0,1])
-                red, green, blue = mcolors.to_rgb(ccolor)
-                # Adjust red, green and blue in the range [0,255]
-                red = int(red * 255)
-                green = int(green * 255)
-                blue = int(blue * 255)
-                fp.write("%s\t%d\t%d\t%s\t0\t%s\t%d\t%d\t%d,%d,%d\n" % (self.seq_name, abs_start + cdata[0], abs_start + cdata[1], cdata[2], cdata[3], abs_start + cdata[0], abs_start + cdata[1], red, green, blue))
-            else:
-                fp.write("%s\t%d\t%d\t%s\t0\t%s\t%d\t%d\t0,0,0\n" % (self.seq_name, abs_start + cdata[0], abs_start + cdata[1], cdata[2], cdata[3], abs_start + cdata[0], abs_start + cdata[1]))
-            row += 1
-        # Additional information to complete the sequence
-        if abs_start + cdata[1] != abs_end:
-            fp.write("%s\t%d\t%d\tmono\t0\t+\t%d\t%d\t0,0,0\n" % (self.seq_name, abs_start + cdata[1], abs_end, abs_start + cdata[1], abs_end))
-        fp.close()
-        """
         
     ##########################################################################    
     # Zoom out
@@ -2367,8 +2013,8 @@ class PysageGUI(object):
         return
         
     ##########################################################################    
-    # Refresh
-    def refresh(self):
+    # Reset
+    def reset(self):
         # Set color of nodes in the HOR tree to black
         for patch in self.patches:
             patch.set_color('black')
@@ -2404,13 +2050,13 @@ class PysageGUI(object):
         self.show_data = tk.Button(self.toolbar, text="ShowData", command=lambda: self.showData())
         self.zoom_in = tk.Button(self.toolbar, text="ZoomIn", command=lambda: self.zoomIn())
         self.zoom_out = tk.Button(self.toolbar, text="ZoomOut", command=lambda: self.zoomOut())
-        self.refresh_win = tk.Button(self.toolbar, text="Refresh", command=lambda: self.refresh())
+        self.reset_win = tk.Button(self.toolbar, text="Reset", command=lambda: self.reset())
         self.load_file.pack(side='left')
         self.plot_tree.pack(side='left')
         self.show_data.pack(side='left')
         self.zoom_in.pack(side='left')
         self.zoom_out.pack(side='left')
-        self.refresh_win.pack(side='left')
+        self.reset_win.pack(side='left')
         # Create frame where the monomers' tree will be displayed
         self.w = tk.Frame(self.master, background="dimgray")
         self.w.pack(side='left',fill='both',expand='True')
