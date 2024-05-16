@@ -80,11 +80,11 @@ class PysageGUI(object):
         
         # Phylogenetic tree
         self.tree = None
-        self.tree_backup = None
+        self.tree_backup = None # Backup for monomers' tree
         self.actual_root = None
         # HOR tree
         self.hor_tree = None
-        self.hor_tree_backup = None
+        self.hor_tree_backup = None # Backup for HORs' tree
         self.hor_root = None
         self.hor_dict = None
         self.hor_lengths = None
@@ -103,7 +103,7 @@ class PysageGUI(object):
         self.canvas = None
         self.tree_canvas = None
         self.other_canvas = None
-        # Data for visualization
+        # Data for visualization (collapse of some nodes and other info)
         self.clade_coords = {}
         self.clade_ids = {}
         self.clicked = None
@@ -133,7 +133,7 @@ class PysageGUI(object):
         self.colors = ['red', 'green', 'blue', 'orange', 'yellow', 'purple', 'grey', 'brown', 'cyan', 'magenta', 'pink', 'gold', 'salmon', 'lime', 'teal', 'silver', 'fuchsia', 'aqua', 'maroon', 'navy', 'olive', 'gray']#mcolors.TABLEAU_COLORS
         self.hor_colors = ['cyan', 'magenta', 'orange', 'purple', 'pink', 'yellow', 'brown', 'blue', 'green', 'red', 'lime', 'navy', 'gold', 'salmon']
         # Directory containing files (json, xml and others)
-        self.filedir = os.getcwd()
+        self.filedir = os.getcwd() # The tool assumes that the file are located in current directory!!!
         self.filename = None
         # Start the GUI
         self.initialize()
@@ -345,7 +345,6 @@ class PysageGUI(object):
                         clade.color = PX.BranchColor.from_name(self.colors[elem % len(self.colors)])
                         elem += 1
                     mono_colors.append(clade.color)
-          
                     mono_clades = clade.find_clades()
                     for mono_clade in mono_clades:
                         # We use the color list
@@ -521,6 +520,7 @@ class PysageGUI(object):
         for elem in self.zoomed_nodes:
             node_colors.append(self.collapsed_colors[elem.root])
             
+        # Create two sub-plots, one for the highlight and one for the scrollbar
         self.ax_tree_ins = []
         ax_tree_ins = self.ax_tree.inset_axes([0.0, 0.0, 0.95, 1.0])
         self.ax_tree_ins.append(ax_tree_ins)
@@ -531,6 +531,7 @@ class PysageGUI(object):
         self.treeForSubPlot = copy.deepcopy(self.tree)
         all_clades = self.treeForSubPlot.find_clades()
         found = False
+        # Look for the clades to be colored, all others will be painted in black
         for clade in all_clades:
             toColor = False
             found = False
@@ -558,8 +559,8 @@ class PysageGUI(object):
                 nodes_to_highlight.append(cclade)
 
         # Compute the min and max values for y
-        ymax = self.treeForSubPlot.count_terminals() + 0.8
-        ymin = 0.2
+        ymax = self.treeForSubPlot.count_terminals() + 0.8 # Derived from original draw() method
+        ymin = 0.2 # Derived from original draw() method
         # Compute differece between max and min
         ydiff = ymax - ymin
         # Compute the amount of plot to be shown
@@ -1205,7 +1206,7 @@ class PysageGUI(object):
         self.collapsed_patches = axes.patches
             
     ##########################################################################
-    # Copy of Phylo.draw() used to show part of the tree
+    # Copy of Phylo.draw() used to show part of the tree (from y_max to y_min) and to expand some nodes, while others are still collapsed
     def drawTreePart(self, 
         tree,
         nodes_to_highlight = None,
@@ -1560,12 +1561,13 @@ class PysageGUI(object):
         # Also invert the y-axis (origin at the top)
         # Add a small vertical margin, but avoid including 0 and N+1 on the y axis
         # Check difference between max height of the tree and passed y_max
+        y_range = y_min - y_max
         if y_max > max_height or abs(max_height - y_max) < 100.0:
             y_max = max_height + 0.8
         # Check whether y_min is higher than max_height
         if y_min >= max_height:
-            y_min = max_height - 150.0
-        axes.set_ylim(y_max, y_min)#max(y_posns.values()) + 0.8, 0.2)
+            y_min = max_height - 150.0 # Currently constant, this can be changed...
+        axes.set_ylim(y_max, y_min)
 
         # Parse and process key word arguments as pyplot options
         for key, value in kwargs.items():
@@ -1752,8 +1754,6 @@ class PysageGUI(object):
         self.checkFullOverlap()
         # Check whether HORs partially overlap
         self.checkPartialOverlap()
-        # Change names of HORs and monomers, create a copy of the PhyloXML tree with new names and create a CSV file storing the association between old and new names
-        #self.rename()
         # Set zoom flag to false
         self.zoomed = False
         
@@ -1889,7 +1889,7 @@ class PysageGUI(object):
                         prev_end = curr_end
             i += 1
                
-        # Build output BED filename (there is one file for each level/cut)
+        # Build output BED filename (there is one file for each selection of the HORs)
         filename = os.path.splitext(self.filename)[0]
         outfile = filename + "_"
         for hor in self.hors:
@@ -2073,7 +2073,7 @@ class PysageGUI(object):
                 self.ax_tree_ins = []
             treeToPlot = copy.deepcopy(self.tree)
             # Plot the collapsed tree
-            self.drawCollapsedTree(treeToPlot, axes=self.ax_tree)#self.tree, axes=self.ax_tree)
+            self.drawCollapsedTree(treeToPlot, axes=self.ax_tree)
             self.ax_tree.get_yaxis().set_visible(False)
             self.tree_canvas.draw()
             # Unset list
@@ -2094,6 +2094,7 @@ class PysageGUI(object):
         # Reset number of clicked items
         self.clicked = []
         self.num_clicked = 0
+        # Reset flag
         self.shown = False
         self.canvas.draw()
         # Delete visualization of other figures (i.e., HORs, sequence and monomers' tree)
@@ -2140,7 +2141,6 @@ class PysageGUI(object):
         # Create frame hosting the plot of selected HORs and their locations in the chromosome sequence
         self.z = tk.Frame(self.master, background="white")
         self.z.pack(side='bottom',fill='both',expand='True')
-        #print(self.w.winfo_screenwidth(), self.w.winfo_screenheight(), self.v.winfo_screenwidth(), self.v.winfo_screenheight(), self.z.winfo_screenwidth(), self.z.winfo_screenheight())
         # Create combobox for files
         self.combo_var = {}
         self.combo = {}
