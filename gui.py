@@ -270,14 +270,15 @@ class PysageGUI(object):
             return
             
     ##########################################################################
-    # Method that returns the HORs
+    # Method that checks if a monomer belongs also to other HORs
     def checkMonomerInOtherHORs(self, mono, hor):
         isIn = False
         omono = None
+        # Loop over clicked nodes
         for elem in self.clicked:
-            print(mono, hor, elem)
             if elem != hor:
                 mono_and_locs = self.hor_dict[elem]
+                # Loop over monomers of this HOR
                 monomers = mono_and_locs[0]
                 for cmono in monomers:
                     clades = self.tree.find_clades(cmono)
@@ -285,12 +286,12 @@ class PysageGUI(object):
                         subclades = clade.find_clades()
                         for sclade in subclades:
                             if sclade.name and sclade.name == mono:
+                                # The monomer has been found in another HOR
                                 isIn = True
                                 omono = cmono
                                 break
             if isIn:
                 break
-        print(isIn, omono)
         return isIn, omono
         
     ##########################################################################
@@ -302,6 +303,8 @@ class PysageGUI(object):
         self.locations = []
         self.monomer_colors = []
         elem = 0
+        # Dict of checked monomers
+        checked = {}
         for hor in self.clicked:
             # Extract monomers and locations
             mono_and_locs = self.hor_dict[hor]
@@ -310,29 +313,34 @@ class PysageGUI(object):
             mono_colors = []
             new_monomers = []
             mod = False
-            checked = {}
             # Color clades associated to monomers
             for mono in monomers:
+                # Check if current monomer is in more than one HOR
                 found = True
                 check_vals = None
                 try:
+                    # Check the existence of the monomer in the dict
                     check_vals = checked[mono]
                 except:
                     found = False
                 if found:
+                    # Monomer already analyzed, get info
                     isInOtherHor = check_vals[0]
                     otherMono = check_vals[1]
                 else:
+                    # Monomer not yet analyzed, check if it belongs to another HOR
                     isInOtherHor, otherMono = self.checkMonomerInOtherHORs(mono, hor)
+                    # Save the information
                     checked[mono] = [isInOtherHor, otherMono]
                 if isInOtherHor:
+                    # If the monomer belongs to another HOR, we append the parent monomer
                     new_monomers.append(otherMono)
                     mod = True
                 else:
+                    # Append current monomer
                     new_monomers.append(mono)
                 clades = self.tree.find_clades(mono)
                 for clade in clades:
-                    #print(hor, mono, clade.color.to_hex())
                     if clade.color.to_hex() == "#000000":
                         clade.color = PX.BranchColor.from_name(self.colors[elem % len(self.colors)])
                         elem += 1
@@ -355,7 +363,6 @@ class PysageGUI(object):
                 locations.append([int(rel_start), int(rel_end), strand])
             # Sort locations
             locations.sort()
-            print(new_monomers)
             # Insert information in the corresponding lists
             new_hor = hor
             if mod:
@@ -369,8 +376,6 @@ class PysageGUI(object):
                 self.clicked[hor_id] = new_hor
                 # Add new entry in the HOR dict
                 self.hor_dict[new_hor] = [new_monomers, mono_locs]
-                # Add new entry in the HORs
-                print(new_hor)
             self.hors.append(new_hor)
             self.monomers.append(new_monomers)
             self.locations.append(locations)
