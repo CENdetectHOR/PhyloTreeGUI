@@ -1886,11 +1886,13 @@ class PysageGUI(object):
                
         # Build output BED filename (there is one file for each selection of the HORs)
         filename = os.path.splitext(self.filename)[0]
-        outfile = filename + "_"
+        outfile = filename + "_HORs.bed"
+        """
         for hor in self.hors:
             outfile += hor + "-"
         outfile = outfile[:-1]
         outfile += ".bed"
+        """
         fp = open(os.path.join(self.folder, outfile), "w")
         # Write data
         rows = len(bdata)
