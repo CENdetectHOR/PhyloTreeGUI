@@ -34,14 +34,6 @@ def atoi(text):
 
 def natural_keys(text):
     return [ atoi(c) for c in re.split(r'(\d+)', text) ]
-    
-def characters():
-    lower_letters = list(string.ascii_lowercase)
-    upper_letters = list(string.ascii_uppercase)
-    numbers = [str(num) for num in range(10)]
-    special_chars = list(string.punctuation)
-    full_chars = upper_letters + lower_letters + numbers + special_chars
-    return full_chars
 
 ########################################################################################
 ## Pysage GUI
@@ -88,6 +80,8 @@ class PysageGUI(object):
         self.hor_root = None
         self.hor_dict = None
         self.hor_lengths = None
+        # Family name counter
+        self.fcnt = None
         # Chromosome sequence (start and end)
         self.chr_seq = None
         self.seq_name = None
@@ -210,7 +204,7 @@ class PysageGUI(object):
     ##########################################################################
     # Method that loads json and xml files with basename <filename>
     def loadFile(self, filename=None):
-        chars = characters()
+        self.fcnt = 1
         if filename is not None:
             res = Phylo.parse(filename, "phyloxml")
             trees = []
@@ -232,14 +226,15 @@ class PysageGUI(object):
             # Change name of clades
             old_names = []
             new_names = []
-            idx = 0
             for clade in self.tree.find_clades():
                  if clade.name and "chr" not in clade.name:
                      old_names.append(clade.name)
-                     new_names.append(chars[idx])
+                     cname = "F" + str(self.fcnt)
+                     new_names.append(cname)
                      # Change clade name
-                     clade.name = chars[idx]
-                     idx += 1
+                     clade.name = cname
+                     self.fcnt += 1
+
             assert len(old_names) == len(new_names), "Weird error in list append"
             # Save CSV file containing associations
             d = {"old_name": old_names, "new_name": new_names}
