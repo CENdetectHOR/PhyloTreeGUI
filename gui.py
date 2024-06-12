@@ -1884,6 +1884,13 @@ class PysageGUI(object):
                         prev_end = curr_end
             i += 1
                
+        # Return the list of HORs
+        horfile = "selected_hor_list.txt"
+        fp = open(os.path.join(self.folder, horfile), "w")
+        for hor in self.hors:
+            fp.write("%s\n" % hor)
+        fp.close()       
+               
         # Build output BED filename (there is one file for each selection of the HORs)
         filename = os.path.splitext(self.filename)[0]
         outfile = filename + "_HORs.bed"
