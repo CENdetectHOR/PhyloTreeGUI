@@ -1884,12 +1884,28 @@ class PysageGUI(object):
                         prev_end = curr_end
             i += 1
                
-        # Return the list of HORs
+        # Return the list of selected HORs
         horfile = "selected_hor_list.txt"
         fp = open(os.path.join(self.folder, horfile), "w")
         for hor in self.hors:
             fp.write("%s\n" % hor)
         fp.close()       
+        
+        mono_to_save = []
+        # Extract monomers belonging to families (i.e., leaves of the tree)
+        for monos in self.monomers:
+            for mono in monos:
+                if not mono in mono_to_save:
+                    for clade in self.tree.find_clades():
+                        if clade.name == mono:
+                            tmp_tree = PX.Phylogeny(root=clade, name=clade.name)
+                            leaves = tmp_tree.get_terminals()
+                            monofile = self.seq_name + "_" + mono + ".txt"
+                            fp = open(os.path.join(self.folder, monofile), "w")
+                            for leaf in leaves:
+                                fp.write("%s\n" % leaf.name)
+                            fp.close()
+                            mono_to_save.append(mono)
                
         # Build output BED filename (there is one file for each selection of the HORs)
         filename = os.path.splitext(self.filename)[0]
@@ -2015,7 +2031,7 @@ class PysageGUI(object):
             for i in range(len(cmono)):
                 rect = patches.Rectangle((i, 0), 1, 1, facecolor=cmono_colors[i].to_hex(), edgecolor='black')
                 ax_hor.add_patch(rect)
-                ax_hor.text(i + 0.5, 1.25, str(cmono[i]))
+                ax_hor.text(i, 1.25, str(cmono[i]))
             hor_rect = patches.Rectangle((-4.5, 0.25), 3, 0.5, color=self.clicked_colors[j], clip_on=False)
             ax_hor.add_patch(hor_rect)
             N = len(self.hors[j])
