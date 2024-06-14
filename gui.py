@@ -1885,7 +1885,7 @@ class PysageGUI(object):
             i += 1
                
         # Return the list of selected HORs
-        horfile = "selected_hor_list.txt"
+        horfile = self.seq_name + "_selected_hor_list.txt"
         fp = open(os.path.join(self.folder, horfile), "w")
         for hor in self.hors:
             fp.write("%s\n" % hor)
