@@ -236,10 +236,6 @@ class PysageGUI(object):
                      self.fcnt += 1
 
             assert len(old_names) == len(new_names), "Weird error in list append"
-            # Save CSV file containing associations
-            d = {"old_name": old_names, "new_name": new_names}
-            df = pd.DataFrame(data=d)
-            df.to_csv(os.path.join(self.folder, 'name_association.csv'), sep=',', index=False) 
             # HORs
             self.hor_tree = trees[1]
             self.hot_tree_backup = copy.deepcopy(self.hor_tree)
@@ -254,6 +250,10 @@ class PysageGUI(object):
             assert self.hor_root is not None, "HORs tree: root not found!!!"
             # Get list of monomers for each hor (useful to print data)
             self.calcHorsMonomersList(old_names, new_names)
+            # Save CSV file containing associations
+            d = {"old_name": old_names, "new_name": new_names}
+            df = pd.DataFrame(data=d)
+            df.to_csv(os.path.join(self.folder, self.seq_name + '_name_association.csv'), sep=',', index=False) 
             # Save new XML file
             new_trees = PX.Phyloxml(phylogenies=[self.tree, self.hor_tree], attributes={'xsd': 'http://www.w3.org/2001/XMLSchema'})
             fname_no_ext = os.path.splitext(self.filename)[0]
