@@ -1665,13 +1665,15 @@ class PysageGUI(object):
                         cloc_end = cloc[1]
                         # Check whether locations overlap
                         if cloc_start <= oloc_start and cloc_end >= oloc_end:
+                            print("TOTAL OVERLAP (CURR CONTAINS OTHER): ", self.hors[i], self.hors[j])
                             # cloc contains oloc -> remove oloc
                             if oloc not in olocs_to_remove:
                                 olocs_to_remove.append(oloc)
                         else:
                             # Check whether oloc contains cloc
                             if oloc_start <= cloc_start and oloc_end >= cloc_end:
-                                # cloc contains oloc -> remove oloc
+                                print("TOTAL OVERLAP (CURR CONTAINED IN OTHER): ", self.hors[i], self.hors[j])
+                                # oloc contains cloc -> remove cloc
                                 if cloc not in clocs_to_remove:
                                     clocs_to_remove.append(cloc)
                 # Remove locations overlapping
@@ -1714,12 +1716,38 @@ class PysageGUI(object):
                             cloc_end = cloc[1]
                             # Check whether locations partially overlap
                             if cloc_end > oloc_start and cloc_end < oloc_end:
+                                print("PARTIAL OVERLAP: ", chor, ohor)
                                 if self.coverage[chor] >= self.coverage[ohor]:
                                     oloc[0] = cloc[1]
                                 else:
                                     cloc[1] = oloc[0]
                 j += 1
             i += 1
+           
+    ##########################################################################
+    # Check whether HORs have overlapping and/or redundant locations (discouraged!)
+    def checkSelfOverlap(self):
+        for j, (hor, locs) in enumerate(zip(self.hors, self.locations)):
+            nlocs = len(locs)
+            indices_to_remove = []
+            i = 0
+            while i < nlocs - 1:
+                cloc = locs[i]
+                oloc = locs[i + 1]
+                # Check if locations overlap
+                if cloc[0] == oloc[0] and cloc[1] <= oloc[1]:
+                    if i not in indices_to_remove:
+                        indices_to_remove.append(i)
+                if cloc[0] <= oloc[0] and cloc[1] == oloc[1]:
+                    if (i + 1) not in indices_to_remove:
+                        indices_to_remove.append(i + 1)
+                i += 1
+            # Remove duplicated and overlapping locations
+            idx = len(indices_to_remove) - 1
+            while idx >= 0:
+                elem = indices_to_remove[idx]
+                del locs[elem]
+                idx -= 1
             
     ##########################################################################    
     # Show data
@@ -1746,6 +1774,8 @@ class PysageGUI(object):
             
         # Extract HORs
         self.extractHORs()
+        # Check self overlap
+        #self.checkSelfOverlap()
         # Check whether HORs fully overlap
         self.checkFullOverlap()
         # Check whether HORs partially overlap
@@ -1831,6 +1861,7 @@ class PysageGUI(object):
         else:
             bdata.append([cdata[0], cdata[1], cdata[2], cdata[3]])
         # Store previous data
+        prev_id = 0
         prev_start = cdata[0]
         prev_end = cdata[1]
         prev_mono = cdata[2]
@@ -1848,6 +1879,11 @@ class PysageGUI(object):
             if curr_start >= prev_start and curr_end <= prev_end:
                 # Overlap -> Ignore current row
                 pass
+            elif curr_start < prev_end:
+                print(i, curr_start, curr_end, curr_mono, curr_strand)
+                print(prev_id, prev_start, prev_end, prev_mono, prev_strand)
+                # Weird row, continue
+                pass
             else:
                 # Check that current start is greater or equal than previous end
                 #assert curr_start >= prev_end, "Something strange happened when bed data have been sorted!!!"
@@ -1864,6 +1900,7 @@ class PysageGUI(object):
                             prev_start = curr_start
                             prev_end = curr_end
                             prev_strand = curr_strand
+                            prev_id = i
                     else:
                         # Add new line
                         bdata.append([curr_start, curr_end, curr_mono, curr_strand])
@@ -1871,7 +1908,12 @@ class PysageGUI(object):
                         prev_end = curr_end
                         prev_mono = curr_mono
                         prev_strand = curr_strand
+                        prev_id = i
                 else:
+                    """
+                    if curr_start != prev_end:
+                        print(curr_start, prev_end, curr_mono, prev_mono)
+                    """
                     # There is a gap, fill with a mono
                     if curr_mono != "mono":
                         if prev_mono != "mono":
@@ -1884,12 +1926,21 @@ class PysageGUI(object):
                         prev_end = curr_end
                         prev_mono = curr_mono
                         prev_strand = curr_strand
+                        prev_id = i
                     else:
                         # TO BE CHECKED, IT IS MAYBE THE SOURCE OF THE BUG!!!
                         pdata = bdata[-1]
                         pdata[1] = curr_end
                         prev_end = curr_end
+                        prev_mono = curr_mono
             i += 1
+        # Add completion of the sequence
+        if curr_end != (abs_end - abs_start):
+            if curr_mono != "mono":
+                bdata.append([curr_end, (abs_end - abs_start), curr_mono, "+"])
+            else:
+                pdata = bdata[-1]
+                pdata[1] = (abs_end - abs_start)
                
         # Return the list of selected HORs
         horfile = self.seq_name + "_selected_hor_list.txt"
@@ -2022,11 +2073,8 @@ class PysageGUI(object):
         H = 1.0 / (nmonos + 1)
         gs = other_fig.add_gridspec(nmonos + 1, 1, height_ratios=[H for _ in range(nmonos + 1)], hspace=0.1)
         
-        print(self.clicked_colors)
-            
         # Monomers in HORs
         for j in range(nmonos):
-            print(j)
             hor_size = len(self.monomers[j])
             # Workaround to make the HORs (with monomers) be displayed in an acceptable fashion
             gs_hor = gridspec.GridSpecFromSubplotSpec(2, 2, subplot_spec=gs[j, 0], width_ratios=[hor_size, self.hor_len - hor_size], height_ratios=[1, 1], hspace=0.1)
