@@ -429,6 +429,7 @@ class PysageGUI(object):
                                     ccolor = self.hor_colors[self.num_clicked % len(self.hor_colors)]
                                     patch.set_color(ccolor)
                                     self.clicked.append(key)
+                                    self.clicked_colors.append(ccolor)
                                     self.num_clicked += 1
                                     click_all = True
                                 else:
@@ -1770,6 +1771,9 @@ class PysageGUI(object):
             monomer_string.append(mono_str)
             # Append start, end, HOR and strand
             for loc in locs:
+                if loc[0] > loc[1]:
+                    print(monos)
+                    sys.exit()
                 bed_data.append([loc[0], loc[1], mono_str, loc[2]])
         # Retrieve all other data (those not related to HORs) from monomers' tree
         all_clades = self.tree.find_clades()
@@ -1845,6 +1849,8 @@ class PysageGUI(object):
                 # Overlap -> Ignore current row
                 pass
             else:
+                # Check that current start is greater or equal than previous end
+                #assert curr_start >= prev_end, "Something strange happened when bed data have been sorted!!!"
                 if curr_start == prev_end:
                     if curr_mono == prev_mono:
                         if curr_strand == prev_strand:
@@ -1879,6 +1885,7 @@ class PysageGUI(object):
                         prev_mono = curr_mono
                         prev_strand = curr_strand
                     else:
+                        # TO BE CHECKED, IT IS MAYBE THE SOURCE OF THE BUG!!!
                         pdata = bdata[-1]
                         pdata[1] = curr_end
                         prev_end = curr_end
@@ -2014,9 +2021,12 @@ class PysageGUI(object):
         other_fig = Figure(figsize = (4, 4), dpi = 100, constrained_layout=True)
         H = 1.0 / (nmonos + 1)
         gs = other_fig.add_gridspec(nmonos + 1, 1, height_ratios=[H for _ in range(nmonos + 1)], hspace=0.1)
+        
+        print(self.clicked_colors)
             
         # Monomers in HORs
         for j in range(nmonos):
+            print(j)
             hor_size = len(self.monomers[j])
             # Workaround to make the HORs (with monomers) be displayed in an acceptable fashion
             gs_hor = gridspec.GridSpecFromSubplotSpec(2, 2, subplot_spec=gs[j, 0], width_ratios=[hor_size, self.hor_len - hor_size], height_ratios=[1, 1], hspace=0.1)
@@ -2032,10 +2042,10 @@ class PysageGUI(object):
                 rect = patches.Rectangle((i, 0), 1, 1, facecolor=cmono_colors[i].to_hex(), edgecolor='black')
                 ax_hor.add_patch(rect)
                 ax_hor.text(i, 1.25, str(cmono[i]))
-            hor_rect = patches.Rectangle((-4.5, 0.25), 3, 0.5, color=self.clicked_colors[j], clip_on=False)
+            hor_rect = patches.Rectangle((-1.5, 0.25), 1, 0.5, color=self.clicked_colors[j], clip_on=False)
             ax_hor.add_patch(hor_rect)
             N = len(self.hors[j])
-            ax_hor.text(-(2 + 0.1 * N / 2), 1, self.hors[j], fontsize='xx-small')
+            ax_hor.text(-1.5 + 0.1 * N / 2, 1, self.hors[j], fontsize='xx-small')
            
         # Locations of HORs in sequence
         nlocs = len(self.locations)
