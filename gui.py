@@ -69,10 +69,13 @@ class PysageGUI(object):
 
         self.master = master
         # Default folder is current directory
-        folder = os.getcwd()
+        self.folder = os.getcwd()
         if folder is not None:
             # Use passed folder
             self.folder = folder
+        # Create the folder if this does not exist
+        if not os.path.exists(self.folder):
+            os.makedirs(self.folder)
             
         # Set seed for random()
         random.seed(SEED)
