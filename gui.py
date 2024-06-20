@@ -149,7 +149,7 @@ class PysageGUI(object):
             # Extract red, green and blue
             r, g, b = tuple(rgbcolor)
             # Check if we find a black or a white or a grey
-            if r == g and g == b and (r == 0.0 or r == 1.0 or r <= 0.25):
+            if r == g and g == b and (r == 0.0 or r == 1.0 or r <= 0.5):
                 continue
             if len(self.colors) > 0:
                 for col in self.colors:
@@ -2407,7 +2407,7 @@ class PysageGUI(object):
         # Header
         fp.write("track name=\"ItemRGBDemo\" description=\"Item RGB demonstration\" itemRgb=\"On\"\n")
         if cdata[0] != 0:
-            fp.write("%s\t%d\t%d\tmono\t0\t+\t%d\t%d\t0,0,0\n" % (self.seq_name, abs_start, abs_start + cdata[0], abs_start, abs_start + cdata[0]))
+            fp.write("%s\t%d\t%d\tmono\t0\t+\t%d\t%d\t128,128,128\n" % (self.seq_name, abs_start, abs_start + cdata[0], abs_start, abs_start + cdata[0]))
         # Get index of HOR in list in order to retrieve the corresponding color
         idx = -1
         cnt = 0
@@ -2429,7 +2429,7 @@ class PysageGUI(object):
             blue = int(blue * 255)
             fp.write("%s\t%d\t%d\t%s\t0\t%s\t%d\t%d\t%d,%d,%d\n" % (self.seq_name, abs_start + cdata[0], abs_start + cdata[1], cdata[2], cdata[3], abs_start + cdata[0], abs_start + cdata[1], red, green, blue))
         else:
-            fp.write("%s\t%d\t%d\t%s\t0\t%s\t%d\t%d\t0,0,0\n" % (self.seq_name, abs_start + cdata[0], abs_start + cdata[1], cdata[2], cdata[3], abs_start + cdata[0], abs_start + cdata[1]))
+            fp.write("%s\t%d\t%d\t%s\t0\t%s\t%d\t%d\t128,128,128\n" % (self.seq_name, abs_start + cdata[0], abs_start + cdata[1], cdata[2], cdata[3], abs_start + cdata[0], abs_start + cdata[1]))
         # Other rows
         row = 1
         while row < rows:
@@ -2458,11 +2458,11 @@ class PysageGUI(object):
                 blue = int(blue * 255)
                 fp.write("%s\t%d\t%d\t%s\t0\t%s\t%d\t%d\t%d,%d,%d\n" % (self.seq_name, abs_start + cdata[0], abs_start + cdata[1], cdata[2], cdata[3], abs_start + cdata[0], abs_start + cdata[1], red, green, blue))
             else:
-                fp.write("%s\t%d\t%d\t%s\t0\t%s\t%d\t%d\t0,0,0\n" % (self.seq_name, abs_start + cdata[0], abs_start + cdata[1], cdata[2], cdata[3], abs_start + cdata[0], abs_start + cdata[1]))
+                fp.write("%s\t%d\t%d\t%s\t0\t%s\t%d\t%d\t128,128,128\n" % (self.seq_name, abs_start + cdata[0], abs_start + cdata[1], cdata[2], cdata[3], abs_start + cdata[0], abs_start + cdata[1]))
             row += 1
         # Additional information to complete the sequence
         if abs_start + cdata[1] != abs_end:
-            fp.write("%s\t%d\t%d\tmono\t0\t+\t%d\t%d\t0,0,0\n" % (self.seq_name, abs_start + cdata[1], abs_end, abs_start + cdata[1], abs_end))
+            fp.write("%s\t%d\t%d\tmono\t0\t+\t%d\t%d\t128,128,128\n" % (self.seq_name, abs_start + cdata[1], abs_end, abs_start + cdata[1], abs_end))
         fp.close()
         
         # Save CSV file containing associations
