@@ -149,8 +149,9 @@ class PysageGUI(object):
             # Extract red, green and blue
             r, g, b = tuple(rgbcolor)
             # Check if we find a black or a white or a grey
-            if r == g and g == b and (r == 0.0 or r == 1.0 or r <= 0.5):
+            if r == g and g == b:# and (r == 0.0 or r == 1.0 or r <= 0.5):
                 continue
+            # Count how many values are > 0.9 (i.e., the color tends to white)
             cnt_over_9 = 0
             if r > 0.9:
                 cnt_over_9 += 1
@@ -158,12 +159,20 @@ class PysageGUI(object):
                 cnt_over_9 += 1
             if b > 0.9:
                 cnt_over_9 += 1
-            if cnt_over_9 == 3:
+            cnt_over_8 = 0
+            if r > 0.8:
+                cnt_over_8 += 1
+            if g > 0.8:
+                cnt_over_8 += 1
+            if b > 0.8:
+                cnt_over_8 += 1
+            if cnt_over_8 == 3:
                 continue
             if len(self.colors) > 0:
                 for col in self.colors:
-                    rr, gg, bb = tuple(mcolors.to_rgb(col))
                     # Difference with previously stored colors
+                    rr, gg, bb = tuple(mcolors.to_rgb(col))
+                    """
                     diffr = abs(rr - r)
                     diffg = abs(gg - g)
                     diffb = abs(bb - b)
@@ -172,6 +181,16 @@ class PysageGUI(object):
                     diff = diffr + diffg + diffb
                     if diff <= 0.2:
                         # The color is very similar to another color already present in the list
+                        continue
+                    """
+                    # Algorithm derived from https://www.compuphase.com/cmetric.htm
+                    rmean = 255.0 * (r + rr) / 2.0
+                    dr = (r - rr) * 255.0
+                    dg = (g - gg) * 255.0
+                    db = (b - bb) * 255.0
+                    dc = math.sqrt(((2.0 + rmean / 256.0) * dr * dr) + (4.0 * dg * dg) + ((2.0 + (255.0 - rmean) / 256.0) * db * db))
+                    #print(elem, col, dc)
+                    if dc <= 150.0:
                         continue
             self.colors.append(elem)
         #print(self.colors)
