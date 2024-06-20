@@ -151,15 +151,31 @@ class PysageGUI(object):
             # Check if we find a black or a white or a grey
             if r == g and g == b and (r == 0.0 or r == 1.0 or r <= 0.5):
                 continue
+            cnt_over_9 = 0
+            if r > 0.9:
+                cnt_over_9 += 1
+            if g > 0.9:
+                cnt_over_9 += 1
+            if b > 0.9:
+                cnt_over_9 += 1
+            if cnt_over_9 == 3:
+                continue
             if len(self.colors) > 0:
                 for col in self.colors:
                     rr, gg, bb = tuple(mcolors.to_rgb(col))
                     # Difference with previously stored colors
-                    diff = abs(rr - r) + abs(gg - g) + abs(bb - b)
-                    if diff <= 0.1:
+                    diffr = abs(rr - r)
+                    diffg = abs(gg - g)
+                    diffb = abs(bb - b)
+                    if diffr <= 0.2 and diffg <= 0.2 and diffb <= 0.2:
+                        continue
+                    diff = diffr + diffg + diffb
+                    if diff <= 0.2:
                         # The color is very similar to another color already present in the list
                         continue
             self.colors.append(elem)
+        #print(self.colors)
+        #print(len(self.colors))
         random.shuffle(self.colors)
         #self.hor_colors = ['cyan', 'magenta', 'orange', 'purple', 'pink', 'yellow', 'brown', 'blue', 'green', 'red', 'lime', 'navy', 'gold', 'salmon']
         self.hor_colors = copy.deepcopy(self.colors)#[mcolors.rgb2hex(color) for color in mcolors.CSS4_COLORS.keys()]
@@ -2135,7 +2151,7 @@ class PysageGUI(object):
             for i in range(len(cmono)):
                 rect = patches.Rectangle((i, 0), 1, 1, facecolor=cmono_colors[i].to_hex(), edgecolor='black')
                 ax_hor.add_patch(rect)
-                ax_hor.text(i, 1.25, str(cmono[i]), fontsize='x-small')
+                ax_hor.text(i, 1.25, str(cmono[i]), fontsize='xx-small')
             hor_rect = patches.Rectangle((-1.5, 0.25), 1, 0.5, color=self.clicked_colors[j], clip_on=False)
             ax_hor.add_patch(hor_rect)
             N = len(self.hors[j])
@@ -2154,7 +2170,7 @@ class PysageGUI(object):
         ax_seq.set_xticks([0, self.seq_len])
         ax_seq.set_xticklabels(self.chr_seq)
         ax_seq.add_patch(patches.Rectangle((0, 0), self.seq_len, 1, facecolor='grey'))
-        ax_seq.text(-500000.5, 0.5, self.seq_name, fontsize='x-small') # Maybe the x-coordinate of this text can be changed...
+        ax_seq.text(-500000.5, 0.5, self.seq_name, fontsize='xx-small') # Maybe the x-coordinate of this text can be changed...
         plts = []
         for j in range(nlocs):
             # Compute the ratio between actual length and plot
