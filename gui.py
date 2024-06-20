@@ -1721,14 +1721,14 @@ class PysageGUI(object):
                         cloc_end = cloc[1]
                         # Check whether locations overlap
                         if cloc_start <= oloc_start and cloc_end >= oloc_end:
-                            print("TOTAL OVERLAP (CURR CONTAINS OTHER): ", self.hors[i], self.hors[j])
+                            #print("TOTAL OVERLAP (CURR CONTAINS OTHER): ", self.hors[i], self.hors[j])
                             # cloc contains oloc -> remove oloc
                             if oloc not in olocs_to_remove:
                                 olocs_to_remove.append(oloc)
                         else:
                             # Check whether oloc contains cloc
                             if oloc_start <= cloc_start and oloc_end >= cloc_end:
-                                print("TOTAL OVERLAP (CURR CONTAINED IN OTHER): ", self.hors[i], self.hors[j])
+                                #print("TOTAL OVERLAP (CURR CONTAINED IN OTHER): ", self.hors[i], self.hors[j])
                                 # oloc contains cloc -> remove cloc
                                 if cloc not in clocs_to_remove:
                                     clocs_to_remove.append(cloc)
@@ -1772,7 +1772,7 @@ class PysageGUI(object):
                             cloc_end = cloc[1]
                             # Check whether locations partially overlap
                             if cloc_end > oloc_start and cloc_end < oloc_end:
-                                print("PARTIAL OVERLAP: ", chor, ohor)
+                                #print("PARTIAL OVERLAP: ", chor, ohor)
                                 if self.coverage[chor] >= self.coverage[ohor]:
                                     oloc[0] = cloc[1]
                                 else:
@@ -2497,6 +2497,10 @@ class PysageGUI(object):
     ##########################################################################    
     # Select the file to be loaded
     def chooseFile(self, event):
+        if self.filename is not None:
+            # We are selecting a different file, clear the HOR window
+            if self.canvas is not None:
+                self.canvas.get_tk_widget().destroy()
         self.filename = self.combo['file'].get()
         # We add the suffix previously removed for visualization purposes
         self.filename += ".tree.xml"
