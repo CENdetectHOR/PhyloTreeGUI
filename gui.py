@@ -131,13 +131,12 @@ class PysageGUI(object):
         # Data to scroll
         self.scroll_y = 0.0
         # Colors to highlight branches
-        #
-        self.colors = ['red', 'green', 'blue', 'orange', 'yellow', 'purple', 'grey', 'brown', 'cyan', 'magenta', 'pink', 'gold', 'salmon', 'lime', 'teal', 'silver', 'fuchsia', 'aqua', 'maroon', 'navy', 'olive', 'gray']#mcolors.TABLEAU_COLORS
-        #self.colors = [mcolors.rgb2hex(color) for color in mcolors.CSS4_COLORS.keys()]
-        #random.shuffle(self.colors)
-        self.hor_colors = ['cyan', 'magenta', 'orange', 'purple', 'pink', 'yellow', 'brown', 'blue', 'green', 'red', 'lime', 'navy', 'gold', 'salmon']
-        #self.hor_colors = [mcolors.rgb2hex(color) for color in mcolors.CSS4_COLORS.keys()]
-        #random.shuffle(self.hor_colors)
+        #self.colors = ['red', 'green', 'blue', 'orange', 'yellow', 'purple', 'grey', 'brown', 'cyan', 'magenta', 'pink', 'gold', 'salmon', 'lime', 'teal', 'silver', 'fuchsia', 'aqua', 'maroon', 'navy', 'olive', 'gray']#mcolors.TABLEAU_COLORS
+        self.colors = [mcolors.rgb2hex(color) for color in mcolors.CSS4_COLORS.keys()]
+        random.shuffle(self.colors)
+        #self.hor_colors = ['cyan', 'magenta', 'orange', 'purple', 'pink', 'yellow', 'brown', 'blue', 'green', 'red', 'lime', 'navy', 'gold', 'salmon']
+        self.hor_colors = [mcolors.rgb2hex(color) for color in mcolors.CSS4_COLORS.keys()]
+        random.shuffle(self.hor_colors)
         # Directory containing files (json, xml and others)
         self.filedir = os.getcwd() # The tool assumes that the file are located in current directory!!!
         self.filename = None
@@ -352,7 +351,7 @@ class PysageGUI(object):
                 clades = self.tree.find_clades(mono)
                 for clade in clades:
                     if clade.color.to_hex() == "#000000":
-                        clade.color = PX.BranchColor.from_name(self.colors[elem % len(self.colors)])
+                        clade.color = PX.BranchColor.from_hex(self.colors[elem % len(self.colors)])#from_name(self.colors[elem % len(self.colors)])
                         elem += 1
                     mono_colors.append(clade.color)
                     mono_clades = clade.find_clades()
@@ -2109,11 +2108,11 @@ class PysageGUI(object):
             for i in range(len(cmono)):
                 rect = patches.Rectangle((i, 0), 1, 1, facecolor=cmono_colors[i].to_hex(), edgecolor='black')
                 ax_hor.add_patch(rect)
-                ax_hor.text(i, 1.25, str(cmono[i]))
+                ax_hor.text(i, 1.25, str(cmono[i]), fontsize='x-small')
             hor_rect = patches.Rectangle((-1.5, 0.25), 1, 0.5, color=self.clicked_colors[j], clip_on=False)
             ax_hor.add_patch(hor_rect)
             N = len(self.hors[j])
-            ax_hor.text(-1.5 + 0.1 * N / 2, 1, self.hors[j], fontsize='xx-small')
+            #ax_hor.text(-1.5 + 0.1 * N / 2, 1, self.hors[j], fontsize='xx-small')
            
         # Locations of HORs in sequence
         nlocs = len(self.locations)
@@ -2128,7 +2127,7 @@ class PysageGUI(object):
         ax_seq.set_xticks([0, self.seq_len])
         ax_seq.set_xticklabels(self.chr_seq)
         ax_seq.add_patch(patches.Rectangle((0, 0), self.seq_len, 1, facecolor='grey'))
-        ax_seq.text(-500000.5, 0.5, self.seq_name) # Maybe the x-coordinate of this text can be changed...
+        ax_seq.text(-500000.5, 0.5, self.seq_name, fontsize='x-small') # Maybe the x-coordinate of this text can be changed...
         plts = []
         for j in range(nlocs):
             # Compute the ratio between actual length and plot
