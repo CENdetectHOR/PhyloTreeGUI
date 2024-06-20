@@ -131,11 +131,35 @@ class PysageGUI(object):
         # Data to scroll
         self.scroll_y = 0.0
         # Colors to highlight branches
+        # The color list must not contain whites, blacks and greys similar to the sequence bar
         #self.colors = ['red', 'green', 'blue', 'orange', 'yellow', 'purple', 'grey', 'brown', 'cyan', 'magenta', 'pink', 'gold', 'salmon', 'lime', 'teal', 'silver', 'fuchsia', 'aqua', 'maroon', 'navy', 'olive', 'gray']#mcolors.TABLEAU_COLORS
-        self.colors = [mcolors.rgb2hex(color) for color in mcolors.CSS4_COLORS.keys()]
+        # Get list of hex CSS colors
+        #self.colors = [mcolors.rgb2hex(color) for color in mcolors.CSS4_COLORS.keys()]
+        css_colors = [mcolors.rgb2hex(color) for color in mcolors.CSS4_COLORS.keys()]
+        self.colors = []
+        for elem in css_colors:
+            # First check whether the color is in the list
+            if elem in self.colors:
+                continue
+            # Convert color from HEX to RGB
+            rgbcolor = mcolors.to_rgb(elem)
+            # Extract red, green and blue
+            r, g, b = tuple(rgbcolor)
+            # Check if we find a black or a white or a grey
+            if r == g and g == b and (r == 0.0 or r == 1.0 or r <= 0.25):
+                continue
+            if len(self.colors) > 0:
+                for col in self.colors:
+                    rr, gg, bb = tuple(mcolors.to_rgb(col))
+                    # Difference with previously stored colors
+                    diff = abs(rr - r) + abs(gg - g) + abs(bb - b)
+                    if diff <= 0.1:
+                        # The color is very similar to another color already present in the list
+                        continue
+            self.colors.append(elem)
         random.shuffle(self.colors)
         #self.hor_colors = ['cyan', 'magenta', 'orange', 'purple', 'pink', 'yellow', 'brown', 'blue', 'green', 'red', 'lime', 'navy', 'gold', 'salmon']
-        self.hor_colors = [mcolors.rgb2hex(color) for color in mcolors.CSS4_COLORS.keys()]
+        self.hor_colors = copy.deepcopy(self.colors)#[mcolors.rgb2hex(color) for color in mcolors.CSS4_COLORS.keys()]
         random.shuffle(self.hor_colors)
         # Directory containing files (json, xml and others)
         self.filedir = os.getcwd() # The tool assumes that the file are located in current directory!!!
