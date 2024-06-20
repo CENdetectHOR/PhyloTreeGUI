@@ -28,6 +28,10 @@ import string
 import pandas as pd
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 from matplotlib.widgets import Slider
+import random
+
+# Seed to set random
+SEED = 12345
 
 def atoi(text):
     return int(text) if text.isdigit() else text
@@ -69,6 +73,9 @@ class PysageGUI(object):
         if folder is not None:
             # Use passed folder
             self.folder = folder
+            
+        # Set seed for random()
+        random.seed(SEED)
         
         # Phylogenetic tree
         self.tree = None
@@ -124,8 +131,13 @@ class PysageGUI(object):
         # Data to scroll
         self.scroll_y = 0.0
         # Colors to highlight branches
+        #
         self.colors = ['red', 'green', 'blue', 'orange', 'yellow', 'purple', 'grey', 'brown', 'cyan', 'magenta', 'pink', 'gold', 'salmon', 'lime', 'teal', 'silver', 'fuchsia', 'aqua', 'maroon', 'navy', 'olive', 'gray']#mcolors.TABLEAU_COLORS
+        #self.colors = [mcolors.rgb2hex(color) for color in mcolors.CSS4_COLORS.keys()]
+        #random.shuffle(self.colors)
         self.hor_colors = ['cyan', 'magenta', 'orange', 'purple', 'pink', 'yellow', 'brown', 'blue', 'green', 'red', 'lime', 'navy', 'gold', 'salmon']
+        #self.hor_colors = [mcolors.rgb2hex(color) for color in mcolors.CSS4_COLORS.keys()]
+        #random.shuffle(self.hor_colors)
         # Directory containing files (json, xml and others)
         self.filedir = os.getcwd() # The tool assumes that the file are located in current directory!!!
         self.filename = None
@@ -311,6 +323,7 @@ class PysageGUI(object):
             # Color clades associated to monomers
             for mono in monomers:
                 # Check if current monomer is in more than one HOR
+                """
                 found = True
                 check_vals = None
                 try:
@@ -334,6 +347,8 @@ class PysageGUI(object):
                 else:
                     # Append current monomer
                     new_monomers.append(mono)
+                """
+                new_monomers.append(mono)
                 clades = self.tree.find_clades(mono)
                 for clade in clades:
                     if clade.color.to_hex() == "#000000":
@@ -374,6 +389,11 @@ class PysageGUI(object):
             self.monomers.append(new_monomers)
             self.locations.append(locations)
             self.monomer_colors.append(mono_colors)
+            #print(checked)
+        #print(self.hors)
+        #print(self.monomers)
+        #print(self.monomer_colors)
+        #sys.exit()
         
     ##########################################################################
     # Method that allows to click on the plot and do something
@@ -2164,6 +2184,12 @@ class PysageGUI(object):
         return
         
     ##########################################################################    
+    # Get output
+    def getOutput(self):
+        # List of selected HORs, name association, BED file, phyloxml?
+        pass
+        
+    ##########################################################################    
     # Reset
     def reset(self):
         # Set color of nodes in the HOR tree to black
@@ -2171,6 +2197,7 @@ class PysageGUI(object):
             patch.set_color('black')
         # Reset number of clicked items
         self.clicked = []
+        self.clicked_colors = []
         self.num_clicked = 0
         # Reset flag
         self.shown = False
@@ -2203,12 +2230,14 @@ class PysageGUI(object):
         self.show_data = tk.Button(self.toolbar, text="ShowData", command=lambda: self.showData())
         self.zoom_in = tk.Button(self.toolbar, text="ZoomIn", command=lambda: self.zoomIn())
         self.zoom_out = tk.Button(self.toolbar, text="ZoomOut", command=lambda: self.zoomOut())
+        self.get_output = tk.Button(self.toolbar, text="GetOutput", command=lambda: self.getOutput())
         self.reset_win = tk.Button(self.toolbar, text="Reset", command=lambda: self.reset())
         self.load_file.pack(side='left')
         self.plot_tree.pack(side='left')
         self.show_data.pack(side='left')
         self.zoom_in.pack(side='left')
         self.zoom_out.pack(side='left')
+        self.get_output.pack(side='left')
         self.reset_win.pack(side='left')
         # Create frame where the monomers' tree will be displayed
         self.w = tk.Frame(self.master, background="dimgray")
