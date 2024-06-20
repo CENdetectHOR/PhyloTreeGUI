@@ -140,6 +140,12 @@ class PysageGUI(object):
         # Directory containing files (json, xml and others)
         self.filedir = os.getcwd() # The tool assumes that the file are located in current directory!!!
         self.filename = None
+        # Counter to save data
+        self.filecnt = 0
+        # Dataframe for association between old and new names
+        self.data = None
+        self.tree_for_file = None
+        self.hor_tree_for_file = None
         # Start the GUI
         self.initialize()
             
@@ -262,7 +268,10 @@ class PysageGUI(object):
             # Get list of monomers for each hor (useful to print data)
             self.calcHorsMonomersList(old_names, new_names)
             # Save CSV file containing associations
-            d = {"old_name": old_names, "new_name": new_names}
+            self.data = {"old_name": old_names, "new_name": new_names}
+            self.tree_for_file = copy.deepcopy(self.tree)
+            self.hor_tree_for_file = copy.deepcopy(self.hor_tree)
+            """
             df = pd.DataFrame(data=d)
             df.to_csv(os.path.join(self.folder, self.seq_name + '_name_association.csv'), sep=',', index=False) 
             # Save new XML file
@@ -271,6 +280,7 @@ class PysageGUI(object):
             fname_no_ext += "_new.xml"
             outfile = os.path.join(self.folder, fname_no_ext)
             Phylo.write(new_trees, outfile, format='phyloxml')
+            """
         else:
             self.popupMsg("You must select the file before loading!!!")
             return
@@ -1801,7 +1811,7 @@ class PysageGUI(object):
         self.checkPartialOverlap()
         # Set zoom flag to false
         self.zoomed = False
-        
+        """
         # Generate BED file
         monomer_string = []
         abs_start = int(self.chr_seq[0])
@@ -1929,10 +1939,6 @@ class PysageGUI(object):
                         prev_strand = curr_strand
                         prev_id = i
                 else:
-                    """
-                    if curr_start != prev_end:
-                        print(curr_start, prev_end, curr_mono, prev_mono)
-                    """
                     # There is a gap, fill with a mono
                     if curr_mono != "mono":
                         if prev_mono != "mono":
@@ -1987,12 +1993,6 @@ class PysageGUI(object):
         # Build output BED filename (there is one file for each selection of the HORs)
         filename = os.path.splitext(self.filename)[0]
         outfile = filename + "_HORs.bed"
-        """
-        for hor in self.hors:
-            outfile += hor + "-"
-        outfile = outfile[:-1]
-        outfile += ".bed"
-        """
         fp = open(os.path.join(self.folder, outfile), "w")
         # Write data
         rows = len(bdata)
@@ -2060,7 +2060,7 @@ class PysageGUI(object):
         if abs_start + cdata[1] != abs_end:
             fp.write("%s\t%d\t%d\tmono\t0\t+\t%d\t%d\t0,0,0\n" % (self.seq_name, abs_start + cdata[1], abs_end, abs_start + cdata[1], abs_end))
         fp.close()
-
+        """
         # Plot data
         nmonos = len(self.monomers)
         assert nmonos >= 1, "Invalid number of HORs!!!"
@@ -2185,8 +2185,268 @@ class PysageGUI(object):
     ##########################################################################    
     # Get output
     def getOutput(self):
+        # Update counter
+        self.filecnt += 1
         # List of selected HORs, name association, BED file, phyloxml?
-        pass
+        # Generate BED file
+        monomer_string = []
+        abs_start = int(self.chr_seq[0])
+        abs_end = int(self.chr_seq[1])
+        # self.seq_name self.monomers (numero di HORS) self.locations (numero di HORS)
+        bed_data = []
+        for monos, locs in zip(self.monomers, self.locations):
+            # Re-build monomers' string (i.e., HOR)
+            mono_str = ""
+            # Add monomers in the HOR
+            for mono in monos:
+                mono_str += str(mono)
+                mono_str += ","
+            # Remove last comma
+            mono_str = mono_str[:-1]
+            monomer_string.append(mono_str)
+            # Append start, end, HOR and strand
+            for loc in locs:
+                if loc[0] > loc[1]:
+                    print(monos)
+                    sys.exit()
+                bed_data.append([loc[0], loc[1], mono_str, loc[2]])
+        # Retrieve all other data (those not related to HORs) from monomers' tree
+        all_clades = self.tree.find_clades()
+        for clade in all_clades:
+            if clade.name:
+                found = False
+                for mono in self.monomers:
+                    if clade.name in mono:
+                        found = True
+                if not found:
+                    # Not in HORs, check if it contains sequences
+                    if clade.sequences:                    
+                        seqs = clade.sequences
+                        # Loop over sequences
+                        for seq in seqs:
+                            # Extract relative start, end and strand
+                            loc = seq.location
+                            substr = loc.split('[')[1]
+                            substr2 = substr.split(']')[0]
+                            substr3 = substr.split(']')[1]
+                            rel_start = substr2.split(':')[0]
+                            rel_start = int(rel_start)
+                            rel_end = substr2.split(':')[1]
+                            rel_end = int(rel_end)
+                            strand = substr3[1]
+                            ndata = len(bed_data)
+                            found = False
+                            i = 0
+                            while i < ndata and not found:
+                                cdata = bed_data[i]
+                                cstart = cdata[0]
+                                cend = cdata[1]
+                                if rel_start >= cstart and rel_end <= cend:
+                                    found = True
+                                i += 1
+                            if not found: 
+                                bed_data.append([rel_start, rel_end, "mono", strand])
+        # Sort data based on locations
+        bed_data.sort()
+        # Build actual data to be stored (i.e., we collapse info when needed)
+        bdata = []
+        ndata = len(bed_data)
+        # First entry is treated separatedly
+        cdata = bed_data[0]
+        if cdata[0] != 0:
+            # First part is a monomer organization
+            # Check if the first data to be stored is a monomer
+            if cdata[2] != "mono":
+                # HOR, we fill mono until the HOR
+                bdata.append([0, cdata[0], "mono", "+"])
+                bdata.append([cdata[0], cdata[1], cdata[2], cdata[3]])
+            else:
+                # Monomer organization, fill until the end
+                bdata.append([0, cdata[1], cdata[2], cdata[3]])
+        else:
+            bdata.append([cdata[0], cdata[1], cdata[2], cdata[3]])
+        # Store previous data
+        prev_id = 0
+        prev_start = cdata[0]
+        prev_end = cdata[1]
+        prev_mono = cdata[2]
+        prev_strand = cdata[3]
+        # Loop over remaining data
+        i = 1
+        while i < ndata:
+            # Get current entry
+            cdata = bed_data[i]
+            curr_start = cdata[0]
+            curr_end = cdata[1]
+            curr_mono = cdata[2]
+            curr_strand = cdata[3]
+            # Check if there is an overlap
+            if curr_start >= prev_start and curr_end <= prev_end:
+                # Overlap -> Ignore current row
+                pass
+            elif curr_start < prev_end:
+                print(i, curr_start, curr_end, curr_mono, curr_strand)
+                print(prev_id, prev_start, prev_end, prev_mono, prev_strand)
+                # Weird row, continue
+                pass
+            else:
+                # Check that current start is greater or equal than previous end
+                #assert curr_start >= prev_end, "Something strange happened when bed data have been sorted!!!"
+                if curr_start == prev_end:
+                    if curr_mono == prev_mono:
+                        if curr_strand == prev_strand:
+                            # We simply need to modify end of previous entry
+                            pdata = bdata[-1]
+                            pdata[1] = curr_end
+                            prev_end = curr_end
+                        else:
+                            # Add new line
+                            bdata.append([curr_start, curr_end, curr_mono, curr_strand])
+                            prev_start = curr_start
+                            prev_end = curr_end
+                            prev_strand = curr_strand
+                            prev_id = i
+                    else:
+                        # Add new line
+                        bdata.append([curr_start, curr_end, curr_mono, curr_strand])
+                        prev_start = curr_start
+                        prev_end = curr_end
+                        prev_mono = curr_mono
+                        prev_strand = curr_strand
+                        prev_id = i
+                else:
+                    # There is a gap, fill with a mono
+                    if curr_mono != "mono":
+                        if prev_mono != "mono":
+                            bdata.append([prev_end, curr_start, "mono", "+"])
+                        else:
+                            pdata = bdata[-1]
+                            pdata[1] = curr_start
+                        bdata.append([curr_start, curr_end, curr_mono, curr_strand])
+                        prev_start = curr_start
+                        prev_end = curr_end
+                        prev_mono = curr_mono
+                        prev_strand = curr_strand
+                        prev_id = i
+                    else:
+                        # TO BE CHECKED, IT IS MAYBE THE SOURCE OF THE BUG!!!
+                        pdata = bdata[-1]
+                        pdata[1] = curr_end
+                        prev_end = curr_end
+                        prev_mono = curr_mono
+            i += 1
+        # Add completion of the sequence
+        if curr_end != (abs_end - abs_start):
+            if curr_mono != "mono":
+                bdata.append([curr_end, (abs_end - abs_start), curr_mono, "+"])
+            else:
+                pdata = bdata[-1]
+                pdata[1] = (abs_end - abs_start)
+               
+        # Return the list of selected HORs
+        horfile = self.seq_name + "_selected_hor_list_" + str(self.filecnt) + ".txt"
+        fp = open(os.path.join(self.folder, horfile), "w")
+        for hor in self.hors:
+            fp.write("%s\n" % hor)
+        fp.close()       
+        
+        # Save all the monomers associated to the selected HORs
+        mono_to_save = []
+        # Extract monomers belonging to families (i.e., leaves of the tree)
+        for monos in self.monomers:
+            for mono in monos:
+                if not mono in mono_to_save:
+                    for clade in self.tree.find_clades():
+                        if clade.name == mono:
+                            tmp_tree = PX.Phylogeny(root=clade, name=clade.name)
+                            leaves = tmp_tree.get_terminals()
+                            monofile = self.seq_name + "_" + mono + ".txt"
+                            fp = open(os.path.join(self.folder, monofile), "w")
+                            for leaf in leaves:
+                                fp.write("%s\n" % leaf.name)
+                            fp.close()
+                            mono_to_save.append(mono)
+               
+        # Build output BED filename (there is one file for each selection of the HORs)
+        filename = os.path.splitext(self.filename)[0]
+        outfile = filename + "_HORs_" + str(self.filecnt) + ".bed"
+        fp = open(os.path.join(self.folder, outfile), "w")
+        # Write data
+        rows = len(bdata)
+        # First row
+        cdata = bdata[0]
+        cols = len(cdata)
+        assert cols == 4, "Inconsistent data length {%d}!".format(cols)
+        # Header
+        fp.write("track name=\"ItemRGBDemo\" description=\"Item RGB demonstration\" itemRgb=\"On\"\n")
+        if cdata[0] != 0:
+            fp.write("%s\t%d\t%d\tmono\t0\t+\t%d\t%d\t0,0,0\n" % (self.seq_name, abs_start, abs_start + cdata[0], abs_start, abs_start + cdata[0]))
+        # Get index of HOR in list in order to retrieve the corresponding color
+        idx = -1
+        cnt = 0
+        found = False
+        for mono_str in monomer_string:
+            if cdata[2] == mono_str:
+                found = True
+                idx = cnt
+                break
+            cnt += 1
+        if found:
+            # Extract the color
+            ccolor = self.hor_colors[idx % len(self.hor_colors)]
+            # Convert the color string into RGB (values bounded in the range [0,1])
+            red, green, blue = mcolors.to_rgb(ccolor)
+            # Adjust red, green and blue in the range [0,255]
+            red = int(red * 255)
+            green = int(green * 255)
+            blue = int(blue * 255)
+            fp.write("%s\t%d\t%d\t%s\t0\t%s\t%d\t%d\t%d,%d,%d\n" % (self.seq_name, abs_start + cdata[0], abs_start + cdata[1], cdata[2], cdata[3], abs_start + cdata[0], abs_start + cdata[1], red, green, blue))
+        else:
+            fp.write("%s\t%d\t%d\t%s\t0\t%s\t%d\t%d\t0,0,0\n" % (self.seq_name, abs_start + cdata[0], abs_start + cdata[1], cdata[2], cdata[3], abs_start + cdata[0], abs_start + cdata[1]))
+        # Other rows
+        row = 1
+        while row < rows:
+            # Get current data
+            cdata = bdata[row]
+            cols = len(cdata)
+            assert cols == 4, "Inconsistent data length {%d}!".format(cols)
+            # Get index of HOR in list in order to retrieve the corresponding color
+            idx = -1
+            cnt = 0
+            found = False
+            for mono_str in monomer_string:
+                if cdata[2] == mono_str:
+                    found = True
+                    idx = cnt
+                    break
+                cnt += 1
+            if found:
+                # Extract the color
+                ccolor = self.hor_colors[idx % len(self.hor_colors)]
+                # Convert the color string into RGB (values bounded in the range [0,1])
+                red, green, blue = mcolors.to_rgb(ccolor)
+                # Adjust red, green and blue in the range [0,255]
+                red = int(red * 255)
+                green = int(green * 255)
+                blue = int(blue * 255)
+                fp.write("%s\t%d\t%d\t%s\t0\t%s\t%d\t%d\t%d,%d,%d\n" % (self.seq_name, abs_start + cdata[0], abs_start + cdata[1], cdata[2], cdata[3], abs_start + cdata[0], abs_start + cdata[1], red, green, blue))
+            else:
+                fp.write("%s\t%d\t%d\t%s\t0\t%s\t%d\t%d\t0,0,0\n" % (self.seq_name, abs_start + cdata[0], abs_start + cdata[1], cdata[2], cdata[3], abs_start + cdata[0], abs_start + cdata[1]))
+            row += 1
+        # Additional information to complete the sequence
+        if abs_start + cdata[1] != abs_end:
+            fp.write("%s\t%d\t%d\tmono\t0\t+\t%d\t%d\t0,0,0\n" % (self.seq_name, abs_start + cdata[1], abs_end, abs_start + cdata[1], abs_end))
+        fp.close()
+        
+        # Save CSV file containing associations
+        df = pd.DataFrame(data=self.data)
+        df.to_csv(os.path.join(self.folder, self.seq_name + '_name_association.csv'), sep=',', index=False) 
+        # Save new XML file
+        new_trees = PX.Phyloxml(phylogenies=[self.tree_for_file, self.hor_tree_for_file], attributes={'xsd': 'http://www.w3.org/2001/XMLSchema'})
+        fname_no_ext = os.path.splitext(self.filename)[0]
+        fname_no_ext += "_new.xml"
+        outfile = os.path.join(self.folder, fname_no_ext)
+        Phylo.write(new_trees, outfile, format='phyloxml')
         
     ##########################################################################    
     # Reset
