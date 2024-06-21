@@ -148,7 +148,7 @@ class PysageGUI(object):
             rgbcolor = mcolors.to_rgb(elem)
             # Extract red, green and blue
             r, g, b = tuple(rgbcolor)
-            # Check if we find a black or a white or a grey
+            # Check if we find a black or a white or a grey (when R == G == B)
             if r == g and g == b:# and (r == 0.0 or r == 1.0 or r <= 0.5):
                 continue
             # Count how many values are > 0.9 (i.e., the color tends to white)
@@ -422,9 +422,9 @@ class PysageGUI(object):
                 new_monomers.append(mono)
                 clades = self.tree.find_clades(mono)
                 for clade in clades:
-                    if clade.color.to_hex() == "#000000":
-                        clade.color = PX.BranchColor.from_hex(self.colors[elem % len(self.colors)])#from_name(self.colors[elem % len(self.colors)])
-                        elem += 1
+                    #if clade.color.to_hex() == "#000000":
+                    clade.color = PX.BranchColor.from_hex(self.colors[elem % len(self.colors)])#from_name(self.colors[elem % len(self.colors)])
+                    elem += 1
                     mono_colors.append(clade.color)
                     mono_clades = clade.find_clades()
                     for mono_clade in mono_clades:
@@ -2170,7 +2170,7 @@ class PysageGUI(object):
             for i in range(len(cmono)):
                 rect = patches.Rectangle((i, 0), 1, 1, facecolor=cmono_colors[i].to_hex(), edgecolor='black')
                 ax_hor.add_patch(rect)
-                ax_hor.text(i, 1.25, str(cmono[i]), fontsize='xx-small')
+                ax_hor.text(i, 1.25, str(cmono[i]), fontsize='x-small')
             hor_rect = patches.Rectangle((-1.5, 0.25), 1, 0.5, color=self.clicked_colors[j], clip_on=False)
             ax_hor.add_patch(hor_rect)
             N = len(self.hors[j])
@@ -2189,7 +2189,7 @@ class PysageGUI(object):
         ax_seq.set_xticks([0, self.seq_len])
         ax_seq.set_xticklabels(self.chr_seq)
         ax_seq.add_patch(patches.Rectangle((0, 0), self.seq_len, 1, facecolor='grey'))
-        ax_seq.text(-500000.5, 0.5, self.seq_name, fontsize='xx-small') # Maybe the x-coordinate of this text can be changed...
+        ax_seq.text(-500000.5, 0.5, self.seq_name, fontsize='x-small') # Maybe the x-coordinate of this text can be changed...
         plts = []
         for j in range(nlocs):
             # Compute the ratio between actual length and plot
@@ -2247,7 +2247,7 @@ class PysageGUI(object):
     ##########################################################################    
     # Get output
     def getOutput(self):
-        # Update counter
+        # Update counter for filenames
         self.filecnt += 1
         # List of selected HORs, name association, BED file, phyloxml?
         # Generate BED file
