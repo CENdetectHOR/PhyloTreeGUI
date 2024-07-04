@@ -422,8 +422,8 @@ class PysageGUI(object):
                 new_monomers.append(mono)
                 clades = self.tree.find_clades(mono)
                 for clade in clades:
-                    #if clade.color.to_hex() == "#000000":
-                    clade.color = PX.BranchColor.from_hex(self.colors[elem % len(self.colors)])#from_name(self.colors[elem % len(self.colors)])
+                    if clade.color.to_hex() == "#000000":
+                        clade.color = PX.BranchColor.from_hex(self.colors[elem % len(self.colors)])#from_name(self.colors[elem % len(self.colors)])
                     elem += 1
                     mono_colors.append(clade.color)
                     mono_clades = clade.find_clades()
@@ -1866,7 +1866,7 @@ class PysageGUI(object):
         # Extract HORs
         self.extractHORs()
         # Check self overlap
-        #self.checkSelfOverlap()
+        #self.checkSelfOverlap() # Management of overlaps between locations in the same HOR
         # Check whether HORs fully overlap
         self.checkFullOverlap()
         # Check whether HORs partially overlap
