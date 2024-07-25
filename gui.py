@@ -384,6 +384,8 @@ class PysageGUI(object):
         # Dict of checked monomers
         checked = {}
         for hor in self.clicked:
+            #print("@@@@@")
+            #print(hor)
             # Extract monomers and locations
             mono_and_locs = self.hor_dict[hor]
             monomers = mono_and_locs[0]
@@ -419,18 +421,27 @@ class PysageGUI(object):
                     # Append current monomer
                     new_monomers.append(mono)
                 """
-                new_monomers.append(mono)
                 clades = self.tree.find_clades(mono)
                 for clade in clades:
-                    if clade.color.to_hex() == "#000000":
+                    colored = False
+                    found_in_other = False
+                    for monolist in self.monomers:
+                        if mono in monolist:
+                            found_in_other = True
+                            break
+                    if mono not in new_monomers and not found_in_other:
+                    #if clade.color.to_hex() == "#000000" and mono not in new_monomers and not found_in_other:
                         clade.color = PX.BranchColor.from_hex(self.colors[elem % len(self.colors)])#from_name(self.colors[elem % len(self.colors)])
-                    elem += 1
+                        colored = True
                     mono_colors.append(clade.color)
                     mono_clades = clade.find_clades()
                     for mono_clade in mono_clades:
                         # We use the color list
                         if mono_clade.color.to_hex() == "#000000":
                             mono_clade.color = clade.color
+                    if colored:
+                        elem += 1
+                new_monomers.append(mono)
             # Extract rel_start, rel_end and strand for all the locations to be plotted
             locations = []
             for loc in mono_locs:
@@ -2272,6 +2283,7 @@ class PysageGUI(object):
                     print(monos)
                     sys.exit()
                 bed_data.append([loc[0], loc[1], mono_str, loc[2]])
+        """
         # Retrieve all other data (those not related to HORs) from monomers' tree
         all_clades = self.tree.find_clades()
         for clade in all_clades:
@@ -2308,6 +2320,7 @@ class PysageGUI(object):
                                 i += 1
                             if not found: 
                                 bed_data.append([rel_start, rel_end, "mono", strand])
+        """
         # Sort data based on locations
         bed_data.sort()
         # Build actual data to be stored (i.e., we collapse info when needed)
