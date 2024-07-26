@@ -2453,7 +2453,9 @@ class PysageGUI(object):
         cols = len(cdata)
         assert cols == 4, "Inconsistent data length {%d}!".format(cols)
         # Header
-        fp.write("track name=\"ItemRGBDemo\" description=\"Item RGB demonstration\" itemRgb=\"On\"\n")
+        outfilename = os.path.splitext(outfile)[0]
+        #fp.write("track name=\"ItemRGBDemo\" description=\"Item RGB demonstration\" itemRgb=\"On\"\n")
+        fp.write("track name=\"" + outfilename + "\" description=\"" + outfilename + "\" itemRgb=\"On\"\n")
         if cdata[0] != 0:
             fp.write("%s\t%d\t%d\tmono\t0\t+\t%d\t%d\t128,128,128\n" % (self.seq_name, abs_start, abs_start + cdata[0], abs_start, abs_start + cdata[0]))
         # Get index of HOR in list in order to retrieve the corresponding color
