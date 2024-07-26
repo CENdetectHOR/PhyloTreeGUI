@@ -2413,7 +2413,7 @@ class PysageGUI(object):
         # Add completion of the sequence
         if curr_end != (abs_end - abs_start):
             if curr_mono != "mono":
-                bdata.append([curr_end, (abs_end - abs_start), curr_mono, "+"])
+                bdata.append([curr_end, (abs_end - abs_start), "mono", "+"])
             else:
                 pdata = bdata[-1]
                 pdata[1] = (abs_end - abs_start)
