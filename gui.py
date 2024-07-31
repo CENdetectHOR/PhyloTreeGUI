@@ -2185,6 +2185,7 @@ class PysageGUI(object):
             hor_rect = patches.Rectangle((-1.5, 0.25), 1, 0.5, color=self.clicked_colors[j], clip_on=False)
             ax_hor.add_patch(hor_rect)
             N = len(self.hors[j])
+            ax_hor.text(-2.5, 0.5, str(hor_size), fontsize='small')
             #ax_hor.text(-1.5 + 0.1 * N / 2, 1, self.hors[j], fontsize='xx-small')
            
         # Locations of HORs in sequence
@@ -2347,6 +2348,8 @@ class PysageGUI(object):
         prev_mono = cdata[2]
         prev_strand = cdata[3]
         # Loop over remaining data
+        curr_end = cdata[1] # Stored in case there is only one HOR...
+        curr_mono = cdata[2]
         i = 1
         while i < ndata:
             # Get current entry
@@ -2559,6 +2562,10 @@ class PysageGUI(object):
     # GUI intialize function: setup the tk environment
     def initialize(self):
         #print(self.master.winfo_screenwidth(), self.master.winfo_screenheight())
+        #print(self.master.winfo_width(), self.master.winfo_height())
+        screen_width = self.master.winfo_screenwidth()
+        screen_height = self.master.winfo_screenheight()
+        self.master.geometry("%dx%d" % (screen_width, screen_height))
         self.toolbar = tk.Frame(self.master, relief='raised', bd=2)
         self.toolbar.pack(side='top', fill='x')
         self.font=("Arial", 25)
@@ -2580,14 +2587,14 @@ class PysageGUI(object):
         self.get_output.pack(side='left')
         self.reset_win.pack(side='left')
         # Create frame where the monomers' tree will be displayed
-        self.w = tk.Frame(self.master, background="dimgray")
-        self.w.pack(side='left',fill='both',expand='True')
+        self.w = tk.Frame(self.master, background="dimgray")#, width=int(screen_width / 2), height=screen_height)
+        self.w.pack(side='left', fill='both', expand='True')
         # Create frame containing the visualization of the HORs' tree
-        self.v = tk.Frame(self.master, background="white")
-        self.v.pack(side='top',fill='both',expand='True')
+        self.v = tk.Frame(self.master, background="white")#, width=int(screen_width / 2), height=int(2 * screen_height / 3))
+        self.v.pack(side='top', fill='both', expand='True')
         # Create frame hosting the plot of selected HORs and their locations in the chromosome sequence
-        self.z = tk.Frame(self.master, background="white")
-        self.z.pack(side='bottom',fill='both',expand='True')
+        self.z = tk.Frame(self.master, background="white")#, width=int(screen_width / 2), height=int(screen_height / 3))
+        self.z.pack(side='bottom', fill='both', expand='True')
         # Create combobox for files
         self.combo_var = {}
         self.combo = {}
