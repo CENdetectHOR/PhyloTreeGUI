@@ -2520,13 +2520,15 @@ class PysageGUI(object):
         
         # Save CSV file containing associations
         df = pd.DataFrame(data=self.data)
-        df.to_csv(os.path.join(self.folder, self.seq_name + '_name_association.csv'), sep=',', index=False) 
+        df.to_csv(os.path.join(self.folder, self.seq_name + '_name_association.csv'), sep=',', index=False)
+        """ 
         # Save new XML file
         new_trees = PX.Phyloxml(phylogenies=[self.tree_for_file, self.hor_tree_for_file], attributes={'xsd': 'http://www.w3.org/2001/XMLSchema'})
         fname_no_ext = os.path.splitext(self.filename)[0]
         fname_no_ext += "_new.xml"
         outfile = os.path.join(self.folder, fname_no_ext)
         Phylo.write(new_trees, outfile, format='phyloxml')
+        """
         
     ##########################################################################    
     # Reset
