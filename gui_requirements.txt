@@ -18,10 +18,22 @@ tkinter version 8.6
 matplotlib version 3.8.x
 numpy
 pandas
+seaborn
+
+All packages can be easily installed by using pip: pip install <package_name>
 
 To launch the GUI, open an Ubuntu terminal and type the command:
 
+python main.py [--path </path/to/dir/containing/xml/files>] [--folder </path/to/out/dir>] [--fullscreen]
+
+The arguments within squared brackets are optional, so you can use the GUI by simply running:
+
 python main.py
+
+You may specify a path to a directory containing the phyloXML files that can be loaded. If your phyloXML files are
+not contained in the current directory, you can use the following command:
+
+python main.py --path <your_path_to_directory_containing_files>
 
 You can specify a directory in which all output files (BED file, new PhyloXML trees, CSV file) will be stored. You
 must simply type the command:
@@ -34,4 +46,4 @@ If you want to launch the GUI at full screen (i.e., the GUI size matches the scr
 
 python main.py --fullscreen
 
-In both cases, to exit the GUI you may simply press the "ESC" keyboard button.
+In all cases, to exit the GUI you may simply press the "ESC" keyboard button.
