@@ -58,8 +58,8 @@ class GUIFactory:
         GUIFactory.factories[idx] = gui_factory
     add_factory = staticmethod(add_factory)
 
-    def create_gui(master, folder=None):
-        return PysageGUI.Factory().create(master, folder=folder)
+    def create_gui(master, path=os.getcwd(), folder=None):
+        return PysageGUI.Factory().create(master, path=path, folder=folder)
     create_gui = staticmethod(create_gui)
 
 
@@ -68,11 +68,11 @@ class GUIFactory:
 class PysageGUI(object):
 
     class Factory:
-        def create(self, master, folder=None): return PysageGUI(master, folder=folder)
+        def create(self, master, path=os.getcwd(), folder=None): return PysageGUI(master, path=path, folder=folder)
 
     ##########################################################################
     # standart class init
-    def __init__(self, master, folder=None):
+    def __init__(self, master, path=os.getcwd(), folder=None):
 
         self.master = master
         # Default folder is current directory
@@ -154,8 +154,7 @@ class PysageGUI(object):
         cpalette = sns.color_palette('winter')
         current_palette.append(tuple(cpalette[0]))
         current_palette.append(tuple(cpalette[-1]))
-        #print(current_palette)
-        #print(len(current_palette))
+        # Remove colors that are too similar
         self.hor_colors = []
         for elem in current_palette:
             r, g, b = tuple(elem)
@@ -177,15 +176,19 @@ class PysageGUI(object):
                 self.hor_colors.append(elem)
         #sns.palplot(self.hor_colors)
         #plt.show()
+        # List of palettes used to color monomers (the ones not used for HORs)
         current_palette = []
         for elem in SNS_PALETTES:
             if elem not in hor_palettes:
                 current_palette.extend(sns.color_palette(elem))
+        # Remove colors that are too similar
         self.colors = []
         for elem in current_palette:
             r, g, b = tuple(elem)
+            # Do not consider black, white and grey
             if r == g and g == b:
                 continue
+            # Do not consider color nuances similar to black, white and grey (thresholds have been determined empirically...)
             if r <= 0.3 and g <= 0.3 and b <= 0.3:
                 continue
             if r >= 0.7 and g >= 0.7 and b >= 0.7:
@@ -212,7 +215,7 @@ class PysageGUI(object):
         self.colors = [mcolors.rgb2hex(elem) for elem in self.colors]
         self.hor_colors = [mcolors.rgb2hex(elem) for elem in self.hor_colors]
         # Directory containing files (json, xml and others)
-        self.filedir = os.getcwd() # The tool assumes that the file are located in current directory!!!
+        self.filedir = path#os.getcwd() # The tool assumes that the file are located in current directory!!!
         self.filename = None
         # Counter to save data
         self.filecnt = 0
