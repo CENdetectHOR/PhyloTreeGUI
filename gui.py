@@ -23,15 +23,22 @@ import matplotlib.colors as mcolors
 import matplotlib.gridspec as gridspec
 import matplotlib.ticker as ticker
 import matplotlib.collections as mpcollections
+from matplotlib import colormaps
 import copy
 import string
 import pandas as pd
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 from matplotlib.widgets import Slider
 import random
+import time
+import seaborn as sns
 
 # Seed to set random
 SEED = 12345
+
+# Seaborn palette list
+#SNS_PALETTES = ['bright', 'deep', 'muted', 'Accent', 'Accent_r', 'Blues', 'Blues_r', 'BrBG', 'BrBG_r', 'BuGn', 'BuGn_r', 'BuPu', 'BuPu_r', 'CMRmap', 'CMRmap_r', 'Dark2', 'Dark2_r', 'GnBu', 'GnBu_r',  'Greens', 'Greens_r', 'Greys', 'Greys_r', 'OrRd', 'OrRd_r', 'Oranges', 'Oranges_r',  'PRGn', 'PRGn_r', 'Paired', 'Paired_r', 'Pastel1', 'Pastel1_r', 'Pastel2',  'Pastel2_r', 'PiYG', 'PiYG_r', 'PuBu', 'PuBuGn', 'PuBuGn_r', 'PuBu_r', 'PuOr', 'PuOr_r', 'PuRd', 'PuRd_r', 'Purples', 'Purples_r', 'RdBu', 'RdBu_r', 'RdGy', 'RdGy_r', 'RdPu', 'RdPu_r', 'RdYlBu', 'RdYlBu_r', 'RdYlGn', 'RdYlGn_r', 'Reds', 'Reds_r', 'Set1', 'Set1_r', 'Set2', 'Set2_r', 'Set3', 'Set3_r', 'Spectral', 'Spectral_r', 'Wistia', 'Wistia_r', 'YlGn', 'YlGnBu', 'YlGnBu_r', 'YlGn_r', 'YlOrBr', 'YlOrBr_r', 'YlOrRd', 'YlOrRd_r', 'afmhot', 'afmhot_r', 'autumn', 'autumn_r', 'binary', 'binary_r',  'bone', 'bone_r', 'brg', 'brg_r', 'bwr', 'bwr_r', 'cividis', 'cividis_r', 'cool', 'cool_r',  'coolwarm', 'coolwarm_r', 'copper', 'copper_r', 'cubehelix', 'cubehelix_r', 'flag', 'flag_r',  'gist_earth', 'gist_earth_r', 'gist_gray', 'gist_gray_r', 'gist_heat', 'gist_heat_r', 'gist_ncar',  'gist_ncar_r', 'gist_rainbow', 'gist_rainbow_r', 'gist_stern', 'gist_stern_r', 'gist_yarg',  'gist_yarg_r', 'gnuplot', 'gnuplot2', 'gnuplot2_r', 'gnuplot_r', 'gray', 'gray_r', 'hot', 'hot_r',  'hsv', 'hsv_r', 'icefire', 'icefire_r', 'inferno', 'inferno_r', 'jet', 'jet_r', 'magma', 'magma_r',  'mako', 'mako_r', 'nipy_spectral', 'nipy_spectral_r', 'ocean', 'ocean_r', 'pink', 'pink_r',  'plasma', 'plasma_r', 'prism', 'prism_r', 'rainbow', 'rainbow_r', 'rocket', 'rocket_r',  'seismic', 'seismic_r', 'spring', 'spring_r', 'summer', 'summer_r', 'tab10', 'tab10_r','tab20', 'tab20_r', 'tab20b', 'tab20b_r', 'tab20c', 'tab20c_r', 'terrain', 'terrain_r', 'turbo',  'turbo_r', 'twilight', 'twilight_r', 'twilight_shifted', 'twilight_shifted_r', 'viridis',  'viridis_r', 'vlag', 'vlag_r', 'winter', 'winter_r']
+SNS_PALETTES = ['bright', 'deep', 'muted', 'Accent', 'Blues', 'BrBG', 'BuGn', 'BuPu', 'CMRmap', 'Dark2', 'GnBu', 'Greens', 'OrRd', 'Oranges', 'PRGn', 'Paired', 'Pastel1', 'Pastel2',  'PiYG', 'PuBu', 'PuBuGn', 'PuOr', 'PuRd', 'Purples', 'RdBu', 'RdGy', 'RdPu', 'RdYlBu', 'RdYlGn', 'Reds', 'Set1', 'Set2', 'Set3', 'Spectral', 'Wistia', 'YlGn', 'YlGnBu', 'YlOrBr', 'YlOrRd', 'afmhot', 'autumn', 'binary', 'bone', 'brg', 'bwr', 'cividis', 'cool', 'coolwarm', 'copper', 'cubehelix', 'flag', 'gist_earth', 'gist_heat', 'gist_ncar', 'gist_rainbow', 'gist_stern', 'gnuplot', 'gnuplot2', 'hot', 'hsv', 'icefire', 'inferno', 'magma', 'mako', 'nipy_spectral', 'ocean', 'pink', 'plasma', 'prism', 'rainbow', 'rocket', 'seismic', 'spring', 'summer', 'tab10', 'tab20', 'tab20b', 'tab20c', 'terrain', 'turbo',  'twilight', 'twilight_shifted', 'viridis', 'vlag', 'winter']
 
 def atoi(text):
     return int(text) if text.isdigit() else text
@@ -134,71 +141,76 @@ class PysageGUI(object):
         # Data to scroll
         self.scroll_y = 0.0
         # Colors to highlight branches
-        # The color list must not contain whites, blacks and greys similar to the sequence bar
-        #self.colors = ['red', 'green', 'blue', 'orange', 'yellow', 'purple', 'grey', 'brown', 'cyan', 'magenta', 'pink', 'gold', 'salmon', 'lime', 'teal', 'silver', 'fuchsia', 'aqua', 'maroon', 'navy', 'olive', 'gray']#mcolors.TABLEAU_COLORS
-        # Get list of hex CSS colors
-        #self.colors = [mcolors.rgb2hex(color) for color in mcolors.CSS4_COLORS.keys()]
-        css_colors = [mcolors.rgb2hex(color) for color in mcolors.CSS4_COLORS.keys()]
+        # List of palettes used to color HORs
+        hor_palettes = ['bright', 'brg', 'cool', 'gist_ncar', 'gist_rainbow', 'hsv', 'nipy_spectral', 'winter']
+        current_palette = sns.color_palette('bright')
+        current_palette.extend(sns.color_palette('brg'))
+        current_palette.extend(sns.color_palette('cool'))
+        current_palette.extend(sns.color_palette('gist_ncar'))
+        current_palette.extend(sns.color_palette('gist_rainbow'))
+        current_palette.extend(sns.color_palette('hsv'))
+        cpalette = sns.color_palette('nipy_spectral')
+        current_palette.extend(cpalette[-3:-1])
+        cpalette = sns.color_palette('winter')
+        current_palette.append(tuple(cpalette[0]))
+        current_palette.append(tuple(cpalette[-1]))
+        #print(current_palette)
+        #print(len(current_palette))
+        self.hor_colors = []
+        for elem in current_palette:
+            r, g, b = tuple(elem)
+            found = False
+            for col in self.hor_colors:
+                # Difference with previously stored colors
+                rr, gg, bb = tuple(col)
+                # Algorithm derived from https://www.compuphase.com/cmetric.htm
+                rmean = 255.0 * (r + rr) / 2.0
+                dr = (r - rr) * 255.0
+                dg = (g - gg) * 255.0
+                db = (b - bb) * 255.0
+                dc = math.sqrt(((2.0 + rmean / 256.0) * dr * dr) + (4.0 * dg * dg) + ((2.0 + (255.0 - rmean) / 256.0) * db * db))
+                #print(elem, col, dc)
+                if abs(r - rr) <= 0.125 and abs(g - gg) <= 0.125 and abs(b - bb) <= 0.125:#dc <= 50.0:
+                    found = True
+                    break
+            if not found:
+                self.hor_colors.append(elem)
+        #sns.palplot(self.hor_colors)
+        #plt.show()
+        current_palette = []
+        for elem in SNS_PALETTES:
+            if elem not in hor_palettes:
+                current_palette.extend(sns.color_palette(elem))
         self.colors = []
-        for elem in css_colors:
-            # First check whether the color is in the list
-            if elem in self.colors:
+        for elem in current_palette:
+            r, g, b = tuple(elem)
+            if r == g and g == b:
                 continue
-            # Convert color from HEX to RGB
-            rgbcolor = mcolors.to_rgb(elem)
-            # Extract red, green and blue
-            r, g, b = tuple(rgbcolor)
-            # Check if we find a black or a white or a grey (when R == G == B)
-            if r == g and g == b:# and (r == 0.0 or r == 1.0 or r <= 0.5):
+            if r <= 0.3 and g <= 0.3 and b <= 0.3:
                 continue
-            # Count how many values are > 0.9 (i.e., the color tends to white)
-            cnt_over_9 = 0
-            if r > 0.9:
-                cnt_over_9 += 1
-            if g > 0.9:
-                cnt_over_9 += 1
-            if b > 0.9:
-                cnt_over_9 += 1
-            cnt_over_8 = 0
-            if r > 0.8:
-                cnt_over_8 += 1
-            if g > 0.8:
-                cnt_over_8 += 1
-            if b > 0.8:
-                cnt_over_8 += 1
-            if cnt_over_8 == 3:
+            if r >= 0.7 and g >= 0.7 and b >= 0.7:
                 continue
-            if len(self.colors) > 0:
-                for col in self.colors:
-                    # Difference with previously stored colors
-                    rr, gg, bb = tuple(mcolors.to_rgb(col))
-                    """
-                    diffr = abs(rr - r)
-                    diffg = abs(gg - g)
-                    diffb = abs(bb - b)
-                    if diffr <= 0.2 and diffg <= 0.2 and diffb <= 0.2:
-                        continue
-                    diff = diffr + diffg + diffb
-                    if diff <= 0.2:
-                        # The color is very similar to another color already present in the list
-                        continue
-                    """
-                    # Algorithm derived from https://www.compuphase.com/cmetric.htm
-                    rmean = 255.0 * (r + rr) / 2.0
-                    dr = (r - rr) * 255.0
-                    dg = (g - gg) * 255.0
-                    db = (b - bb) * 255.0
-                    dc = math.sqrt(((2.0 + rmean / 256.0) * dr * dr) + (4.0 * dg * dg) + ((2.0 + (255.0 - rmean) / 256.0) * db * db))
-                    #print(elem, col, dc)
-                    if dc <= 150.0:
-                        continue
-            self.colors.append(elem)
-        #print(self.colors)
-        #print(len(self.colors))
-        random.shuffle(self.colors)
-        #self.hor_colors = ['cyan', 'magenta', 'orange', 'purple', 'pink', 'yellow', 'brown', 'blue', 'green', 'red', 'lime', 'navy', 'gold', 'salmon']
-        self.hor_colors = copy.deepcopy(self.colors)#[mcolors.rgb2hex(color) for color in mcolors.CSS4_COLORS.keys()]
-        random.shuffle(self.hor_colors)
+            found = False
+            for col in self.colors:
+                # Difference with previously stored colors
+                rr, gg, bb = tuple(col)
+                # Algorithm derived from https://www.compuphase.com/cmetric.htm
+                rmean = 255.0 * (r + rr) / 2.0
+                dr = (r - rr) * 255.0
+                dg = (g - gg) * 255.0
+                db = (b - bb) * 255.0
+                dc = math.sqrt(((2.0 + rmean / 256.0) * dr * dr) + (4.0 * dg * dg) + ((2.0 + (255.0 - rmean) / 256.0) * db * db))
+                #print(elem, col, dc)
+                if abs(r - rr) <= 0.125 and abs(g - gg) <= 0.125 and abs(b - bb) <= 0.125:#dc <= 50.0:
+                    found = True
+                    break
+            if not found:
+                self.colors.append(elem)   
+        #sns.palplot(self.colors)
+        #plt.show()
+        # Convert RGB to HEX colors
+        self.colors = [mcolors.rgb2hex(elem) for elem in self.colors]
+        self.hor_colors = [mcolors.rgb2hex(elem) for elem in self.hor_colors]
         # Directory containing files (json, xml and others)
         self.filedir = os.getcwd() # The tool assumes that the file are located in current directory!!!
         self.filename = None
@@ -333,16 +345,6 @@ class PysageGUI(object):
             self.data = {"old_name": old_names, "new_name": new_names}
             self.tree_for_file = copy.deepcopy(self.tree)
             self.hor_tree_for_file = copy.deepcopy(self.hor_tree)
-            """
-            df = pd.DataFrame(data=d)
-            df.to_csv(os.path.join(self.folder, self.seq_name + '_name_association.csv'), sep=',', index=False) 
-            # Save new XML file
-            new_trees = PX.Phyloxml(phylogenies=[self.tree, self.hor_tree], attributes={'xsd': 'http://www.w3.org/2001/XMLSchema'})
-            fname_no_ext = os.path.splitext(self.filename)[0]
-            fname_no_ext += "_new.xml"
-            outfile = os.path.join(self.folder, fname_no_ext)
-            Phylo.write(new_trees, outfile, format='phyloxml')
-            """
         else:
             self.popupMsg("You must select the file before loading!!!")
             return
@@ -380,67 +382,33 @@ class PysageGUI(object):
         self.hors = []
         self.locations = []
         self.monomer_colors = []
+        examined = []
         elem = 0
-        # Dict of checked monomers
-        checked = {}
         for hor in self.clicked:
-            #print("@@@@@")
-            #print(hor)
             # Extract monomers and locations
             mono_and_locs = self.hor_dict[hor]
             monomers = mono_and_locs[0]
             mono_locs = mono_and_locs[1]
             mono_colors = []
             new_monomers = []
-            mod = False
             # Color clades associated to monomers
             for mono in monomers:
-                # Check if current monomer is in more than one HOR
-                """
-                found = True
-                check_vals = None
-                try:
-                    # Check the existence of the monomer in the dict
-                    check_vals = checked[mono]
-                except:
-                    found = False
-                if found:
-                    # Monomer already analyzed, get info
-                    isInOtherHor = check_vals[0]
-                    otherMono = check_vals[1]
-                else:
-                    # Monomer not yet analyzed, check if it belongs to another HOR
-                    isInOtherHor, otherMono = self.checkMonomerInOtherHORs(mono, hor)
-                    # Save the information
-                    checked[mono] = [isInOtherHor, otherMono]
-                if isInOtherHor:
-                    # If the monomer belongs to another HOR, we append the parent monomer
-                    new_monomers.append(otherMono)
-                    mod = True
-                else:
-                    # Append current monomer
-                    new_monomers.append(mono)
-                """
-                clades = self.tree.find_clades(mono)
-                for clade in clades:
-                    colored = False
-                    found_in_other = False
-                    for monolist in self.monomers:
-                        if mono in monolist:
-                            found_in_other = True
-                            break
-                    if mono not in new_monomers and not found_in_other:
-                    #if clade.color.to_hex() == "#000000" and mono not in new_monomers and not found_in_other:
-                        clade.color = PX.BranchColor.from_hex(self.colors[elem % len(self.colors)])#from_name(self.colors[elem % len(self.colors)])
+                colored = False
+                if mono not in examined:
+                    clades = self.tree.find_clades(mono)
+                    for clade in clades:
+                        clade.color = PX.BranchColor.from_hex(self.colors[elem % len(self.colors)])
                         colored = True
-                    mono_colors.append(clade.color)
-                    mono_clades = clade.find_clades()
-                    for mono_clade in mono_clades:
-                        # We use the color list
-                        if mono_clade.color.to_hex() == "#000000":
+                        mono_clades = clade.find_clades()
+                        for mono_clade in mono_clades:
                             mono_clade.color = clade.color
-                    if colored:
-                        elem += 1
+                    examined.append(mono)
+                else:
+                    clades = self.tree.find_clades(mono)
+                    clade = list(clades)[0] # To access the clade
+                mono_colors.append(clade.color)
+                if colored:
+                    elem += 1
                 new_monomers.append(mono)
             # Extract rel_start, rel_end and strand for all the locations to be plotted
             locations = []
@@ -455,27 +423,10 @@ class PysageGUI(object):
             # Sort locations
             locations.sort()
             # Insert information in the corresponding lists
-            new_hor = hor
-            if mod:
-                # Modify HOR name for visualization
-                hor_len = self.hor_lengths[hor]
-                new_hor = str(hor_len)
-                for mono in new_monomers:
-                    new_hor += mono
-                # Change the name of the HOR in clicked
-                hor_id = self.clicked.index(hor)
-                self.clicked[hor_id] = new_hor
-                # Add new entry in the HOR dict
-                self.hor_dict[new_hor] = [new_monomers, mono_locs]
-            self.hors.append(new_hor)
+            self.hors.append(hor)
             self.monomers.append(new_monomers)
             self.locations.append(locations)
             self.monomer_colors.append(mono_colors)
-            #print(checked)
-        #print(self.hors)
-        #print(self.monomers)
-        #print(self.monomer_colors)
-        #sys.exit()
         
     ##########################################################################
     # Method that allows to click on the plot and do something
@@ -1884,256 +1835,6 @@ class PysageGUI(object):
         self.checkPartialOverlap()
         # Set zoom flag to false
         self.zoomed = False
-        """
-        # Generate BED file
-        monomer_string = []
-        abs_start = int(self.chr_seq[0])
-        abs_end = int(self.chr_seq[1])
-        # self.seq_name self.monomers (numero di HORS) self.locations (numero di HORS)
-        bed_data = []
-        for monos, locs in zip(self.monomers, self.locations):
-            # Re-build monomers' string (i.e., HOR)
-            mono_str = ""
-            # Add monomers in the HOR
-            for mono in monos:
-                mono_str += str(mono)
-                mono_str += ","
-            # Remove last comma
-            mono_str = mono_str[:-1]
-            monomer_string.append(mono_str)
-            # Append start, end, HOR and strand
-            for loc in locs:
-                if loc[0] > loc[1]:
-                    print(monos)
-                    sys.exit()
-                bed_data.append([loc[0], loc[1], mono_str, loc[2]])
-        # Retrieve all other data (those not related to HORs) from monomers' tree
-        all_clades = self.tree.find_clades()
-        for clade in all_clades:
-            if clade.name:
-                found = False
-                for mono in self.monomers:
-                    if clade.name in mono:
-                        found = True
-                if not found:
-                    # Not in HORs, check if it contains sequences
-                    if clade.sequences:                    
-                        seqs = clade.sequences
-                        # Loop over sequences
-                        for seq in seqs:
-                            # Extract relative start, end and strand
-                            loc = seq.location
-                            substr = loc.split('[')[1]
-                            substr2 = substr.split(']')[0]
-                            substr3 = substr.split(']')[1]
-                            rel_start = substr2.split(':')[0]
-                            rel_start = int(rel_start)
-                            rel_end = substr2.split(':')[1]
-                            rel_end = int(rel_end)
-                            strand = substr3[1]
-                            ndata = len(bed_data)
-                            found = False
-                            i = 0
-                            while i < ndata and not found:
-                                cdata = bed_data[i]
-                                cstart = cdata[0]
-                                cend = cdata[1]
-                                if rel_start >= cstart and rel_end <= cend:
-                                    found = True
-                                i += 1
-                            if not found: 
-                                bed_data.append([rel_start, rel_end, "mono", strand])
-        # Sort data based on locations
-        bed_data.sort()
-        # Build actual data to be stored (i.e., we collapse info when needed)
-        bdata = []
-        ndata = len(bed_data)
-        # First entry is treated separatedly
-        cdata = bed_data[0]
-        if cdata[0] != 0:
-            # First part is a monomer organization
-            # Check if the first data to be stored is a monomer
-            if cdata[2] != "mono":
-                # HOR, we fill mono until the HOR
-                bdata.append([0, cdata[0], "mono", "+"])
-                bdata.append([cdata[0], cdata[1], cdata[2], cdata[3]])
-            else:
-                # Monomer organization, fill until the end
-                bdata.append([0, cdata[1], cdata[2], cdata[3]])
-        else:
-            bdata.append([cdata[0], cdata[1], cdata[2], cdata[3]])
-        # Store previous data
-        prev_id = 0
-        prev_start = cdata[0]
-        prev_end = cdata[1]
-        prev_mono = cdata[2]
-        prev_strand = cdata[3]
-        # Loop over remaining data
-        i = 1
-        while i < ndata:
-            # Get current entry
-            cdata = bed_data[i]
-            curr_start = cdata[0]
-            curr_end = cdata[1]
-            curr_mono = cdata[2]
-            curr_strand = cdata[3]
-            # Check if there is an overlap
-            if curr_start >= prev_start and curr_end <= prev_end:
-                # Overlap -> Ignore current row
-                pass
-            elif curr_start < prev_end:
-                print(i, curr_start, curr_end, curr_mono, curr_strand)
-                print(prev_id, prev_start, prev_end, prev_mono, prev_strand)
-                # Weird row, continue
-                pass
-            else:
-                # Check that current start is greater or equal than previous end
-                #assert curr_start >= prev_end, "Something strange happened when bed data have been sorted!!!"
-                if curr_start == prev_end:
-                    if curr_mono == prev_mono:
-                        if curr_strand == prev_strand:
-                            # We simply need to modify end of previous entry
-                            pdata = bdata[-1]
-                            pdata[1] = curr_end
-                            prev_end = curr_end
-                        else:
-                            # Add new line
-                            bdata.append([curr_start, curr_end, curr_mono, curr_strand])
-                            prev_start = curr_start
-                            prev_end = curr_end
-                            prev_strand = curr_strand
-                            prev_id = i
-                    else:
-                        # Add new line
-                        bdata.append([curr_start, curr_end, curr_mono, curr_strand])
-                        prev_start = curr_start
-                        prev_end = curr_end
-                        prev_mono = curr_mono
-                        prev_strand = curr_strand
-                        prev_id = i
-                else:
-                    # There is a gap, fill with a mono
-                    if curr_mono != "mono":
-                        if prev_mono != "mono":
-                            bdata.append([prev_end, curr_start, "mono", "+"])
-                        else:
-                            pdata = bdata[-1]
-                            pdata[1] = curr_start
-                        bdata.append([curr_start, curr_end, curr_mono, curr_strand])
-                        prev_start = curr_start
-                        prev_end = curr_end
-                        prev_mono = curr_mono
-                        prev_strand = curr_strand
-                        prev_id = i
-                    else:
-                        # TO BE CHECKED, IT IS MAYBE THE SOURCE OF THE BUG!!!
-                        pdata = bdata[-1]
-                        pdata[1] = curr_end
-                        prev_end = curr_end
-                        prev_mono = curr_mono
-            i += 1
-        # Add completion of the sequence
-        if curr_end != (abs_end - abs_start):
-            if curr_mono != "mono":
-                bdata.append([curr_end, (abs_end - abs_start), curr_mono, "+"])
-            else:
-                pdata = bdata[-1]
-                pdata[1] = (abs_end - abs_start)
-               
-        # Return the list of selected HORs
-        horfile = self.seq_name + "_selected_hor_list.txt"
-        fp = open(os.path.join(self.folder, horfile), "w")
-        for hor in self.hors:
-            fp.write("%s\n" % hor)
-        fp.close()       
-        
-        mono_to_save = []
-        # Extract monomers belonging to families (i.e., leaves of the tree)
-        for monos in self.monomers:
-            for mono in monos:
-                if not mono in mono_to_save:
-                    for clade in self.tree.find_clades():
-                        if clade.name == mono:
-                            tmp_tree = PX.Phylogeny(root=clade, name=clade.name)
-                            leaves = tmp_tree.get_terminals()
-                            monofile = self.seq_name + "_" + mono + ".txt"
-                            fp = open(os.path.join(self.folder, monofile), "w")
-                            for leaf in leaves:
-                                fp.write("%s\n" % leaf.name)
-                            fp.close()
-                            mono_to_save.append(mono)
-               
-        # Build output BED filename (there is one file for each selection of the HORs)
-        filename = os.path.splitext(self.filename)[0]
-        outfile = filename + "_HORs.bed"
-        fp = open(os.path.join(self.folder, outfile), "w")
-        # Write data
-        rows = len(bdata)
-        # First row
-        cdata = bdata[0]
-        cols = len(cdata)
-        assert cols == 4, "Inconsistent data length {%d}!".format(cols)
-        # Header
-        fp.write("track name=\"ItemRGBDemo\" description=\"Item RGB demonstration\" itemRgb=\"On\"\n")
-        if cdata[0] != 0:
-            fp.write("%s\t%d\t%d\tmono\t0\t+\t%d\t%d\t0,0,0\n" % (self.seq_name, abs_start, abs_start + cdata[0], abs_start, abs_start + cdata[0]))
-        # Get index of HOR in list in order to retrieve the corresponding color
-        idx = -1
-        cnt = 0
-        found = False
-        for mono_str in monomer_string:
-            if cdata[2] == mono_str:
-                found = True
-                idx = cnt
-                break
-            cnt += 1
-        if found:
-            # Extract the color
-            ccolor = self.hor_colors[idx % len(self.hor_colors)]
-            # Convert the color string into RGB (values bounded in the range [0,1])
-            red, green, blue = mcolors.to_rgb(ccolor)
-            # Adjust red, green and blue in the range [0,255]
-            red = int(red * 255)
-            green = int(green * 255)
-            blue = int(blue * 255)
-            fp.write("%s\t%d\t%d\t%s\t0\t%s\t%d\t%d\t%d,%d,%d\n" % (self.seq_name, abs_start + cdata[0], abs_start + cdata[1], cdata[2], cdata[3], abs_start + cdata[0], abs_start + cdata[1], red, green, blue))
-        else:
-            fp.write("%s\t%d\t%d\t%s\t0\t%s\t%d\t%d\t0,0,0\n" % (self.seq_name, abs_start + cdata[0], abs_start + cdata[1], cdata[2], cdata[3], abs_start + cdata[0], abs_start + cdata[1]))
-        # Other rows
-        row = 1
-        while row < rows:
-            # Get current data
-            cdata = bdata[row]
-            cols = len(cdata)
-            assert cols == 4, "Inconsistent data length {%d}!".format(cols)
-            # Get index of HOR in list in order to retrieve the corresponding color
-            idx = -1
-            cnt = 0
-            found = False
-            for mono_str in monomer_string:
-                if cdata[2] == mono_str:
-                    found = True
-                    idx = cnt
-                    break
-                cnt += 1
-            if found:
-                # Extract the color
-                ccolor = self.hor_colors[idx % len(self.hor_colors)]
-                # Convert the color string into RGB (values bounded in the range [0,1])
-                red, green, blue = mcolors.to_rgb(ccolor)
-                # Adjust red, green and blue in the range [0,255]
-                red = int(red * 255)
-                green = int(green * 255)
-                blue = int(blue * 255)
-                fp.write("%s\t%d\t%d\t%s\t0\t%s\t%d\t%d\t%d,%d,%d\n" % (self.seq_name, abs_start + cdata[0], abs_start + cdata[1], cdata[2], cdata[3], abs_start + cdata[0], abs_start + cdata[1], red, green, blue))
-            else:
-                fp.write("%s\t%d\t%d\t%s\t0\t%s\t%d\t%d\t0,0,0\n" % (self.seq_name, abs_start + cdata[0], abs_start + cdata[1], cdata[2], cdata[3], abs_start + cdata[0], abs_start + cdata[1]))
-            row += 1
-        # Additional information to complete the sequence
-        if abs_start + cdata[1] != abs_end:
-            fp.write("%s\t%d\t%d\tmono\t0\t+\t%d\t%d\t0,0,0\n" % (self.seq_name, abs_start + cdata[1], abs_end, abs_start + cdata[1], abs_end))
-        fp.close()
-        """
         # Plot data
         nmonos = len(self.monomers)
         assert nmonos >= 1, "Invalid number of HORs!!!"
@@ -2284,44 +1985,6 @@ class PysageGUI(object):
                     print(monos)
                     sys.exit()
                 bed_data.append([loc[0], loc[1], mono_str, loc[2]])
-        """
-        # Retrieve all other data (those not related to HORs) from monomers' tree
-        all_clades = self.tree.find_clades()
-        for clade in all_clades:
-            if clade.name:
-                found = False
-                for mono in self.monomers:
-                    if clade.name in mono:
-                        found = True
-                if not found:
-                    # Not in HORs, check if it contains sequences
-                    if clade.sequences:                    
-                        seqs = clade.sequences
-                        # Loop over sequences
-                        for seq in seqs:
-                            # Extract relative start, end and strand
-                            loc = seq.location
-                            substr = loc.split('[')[1]
-                            substr2 = substr.split(']')[0]
-                            substr3 = substr.split(']')[1]
-                            rel_start = substr2.split(':')[0]
-                            rel_start = int(rel_start)
-                            rel_end = substr2.split(':')[1]
-                            rel_end = int(rel_end)
-                            strand = substr3[1]
-                            ndata = len(bed_data)
-                            found = False
-                            i = 0
-                            while i < ndata and not found:
-                                cdata = bed_data[i]
-                                cstart = cdata[0]
-                                cend = cdata[1]
-                                if rel_start >= cstart and rel_end <= cend:
-                                    found = True
-                                i += 1
-                            if not found: 
-                                bed_data.append([rel_start, rel_end, "mono", strand])
-        """
         # Sort data based on locations
         bed_data.sort()
         # Build actual data to be stored (i.e., we collapse info when needed)
