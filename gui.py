@@ -1866,7 +1866,7 @@ class PysageGUI(object):
         # the figure that will contain the plot 
         other_fig = Figure(figsize = (4, 4), dpi = 100, constrained_layout=True)
         H = 1.0 / (nmonos + 1)
-        gs = other_fig.add_gridspec(nmonos + 1, 1, height_ratios=[H for _ in range(nmonos + 1)], hspace=0.1)
+        gs = other_fig.add_gridspec(nmonos + 1, 1, height_ratios=[H for _ in range(nmonos + 1)], hspace=1 / (nmonos + 1))#0.1)
         
         # Monomers in HORs
         for j in range(nmonos):
