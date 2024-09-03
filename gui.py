@@ -74,6 +74,11 @@ class PysageGUI(object):
     def __init__(self, master, path=os.getcwd(), folder=None):
 
         self.master = master
+        # Directory containing files (json, xml and others)
+        self.filedir = path#os.getcwd() # The tool assumes that the file are located in current directory!!!
+        if not os.path.isdir(self.filedir):
+            print(f"FATAL ERROR!!! Argument {path} is not a directory!")
+            sys.exit()
         # Default folder is current directory
         self.folder = os.getcwd()
         if folder is not None:
@@ -213,8 +218,7 @@ class PysageGUI(object):
         # Convert RGB to HEX colors
         self.colors = [mcolors.rgb2hex(elem) for elem in self.colors]
         self.hor_colors = [mcolors.rgb2hex(elem) for elem in self.hor_colors]
-        # Directory containing files (json, xml and others)
-        self.filedir = path#os.getcwd() # The tool assumes that the file are located in current directory!!!
+        # Filename
         self.filename = None
         # Counter to save data
         self.filecnt = 0
@@ -1866,7 +1870,7 @@ class PysageGUI(object):
         # the figure that will contain the plot 
         other_fig = Figure(figsize = (4, 4), dpi = 100, constrained_layout=True)
         H = 1.0 / (nmonos + 1)
-        gs = other_fig.add_gridspec(nmonos + 1, 1, height_ratios=[H for _ in range(nmonos + 1)], hspace=1 / (nmonos + 1))#0.1)
+        gs = other_fig.add_gridspec(nmonos + 1, 1, height_ratios=[H for _ in range(nmonos + 1)], hspace=(1 / (nmonos + 1)))#0.1)
         
         # Monomers in HORs
         for j in range(nmonos):
@@ -2265,8 +2269,10 @@ class PysageGUI(object):
         # Create combobox for files
         self.combo_var = {}
         self.combo = {}
-        # Combobox creation 
+        # Combobox creation
         xml_file_values = [os.path.splitext(os.path.splitext(filename)[0])[0] for filename in os.listdir(self.filedir) if filename.endswith(".xml")]
+        if len(xml_file_values) == 0:
+            self.popupMsg(f"No xml files found in directory {self.filedir}...")
         # Make visible only files without the suffix "monomers" or "hors"
         file_values = []
         for elem in xml_file_values:
