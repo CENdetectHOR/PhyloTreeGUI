@@ -13,7 +13,7 @@ def start(path=os.getcwd(), folder=None, fullscreen=None):
     global tk
     import tkinter as tk
     root = tk.Tk()
-    root.title('PhyloTreeGUIv1.0')
+    root.title('PhyloTreeGUI')
     root.lift()
     if fullscreen:
         width, height = root.winfo_screenwidth(), root.winfo_screenheight()
