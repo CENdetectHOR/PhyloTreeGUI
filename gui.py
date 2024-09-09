@@ -29,12 +29,8 @@ import string
 import pandas as pd
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 from matplotlib.widgets import Slider
-import random
 import time
 import seaborn as sns
-
-# Seed to set random
-SEED = 12345
 
 # Seaborn palette list
 SNS_PALETTES = ['bright', 'deep', 'muted', 'Accent', 'Blues', 'BrBG', 'BuGn', 'BuPu', 'CMRmap', 'Dark2', 'GnBu', 'Greens', 'OrRd', 'Oranges', 'PRGn', 'Paired', 'Pastel1', 'Pastel2',  'PiYG', 'PuBu', 'PuBuGn', 'PuOr', 'PuRd', 'Purples', 'RdBu', 'RdGy', 'RdPu', 'RdYlBu', 'RdYlGn', 'Reds', 'Set1', 'Set2', 'Set3', 'Spectral', 'Wistia', 'YlGn', 'YlGnBu', 'YlOrBr', 'YlOrRd', 'afmhot', 'autumn', 'binary', 'bone', 'brg', 'bwr', 'cividis', 'cool', 'coolwarm', 'copper', 'cubehelix', 'flag', 'gist_earth', 'gist_heat', 'gist_ncar', 'gist_rainbow', 'gist_stern', 'gnuplot', 'gnuplot2', 'hot', 'hsv', 'icefire', 'inferno', 'magma', 'mako', 'nipy_spectral', 'ocean', 'pink', 'plasma', 'prism', 'rainbow', 'rocket', 'seismic', 'spring', 'summer', 'tab10', 'tab20', 'tab20b', 'tab20c', 'terrain', 'turbo',  'twilight', 'twilight_shifted', 'viridis', 'vlag', 'winter']
@@ -75,9 +71,10 @@ class PysageGUI(object):
 
         self.master = master
         # Directory containing files (json, xml and others)
-        self.filedir = path#os.getcwd() # The tool assumes that the file are located in current directory!!!
+        assert path is not None
+        self.filedir = path
         if not os.path.isdir(self.filedir):
-            print(f"FATAL ERROR!!! Argument {path} is not a directory!")
+            print(f"FATAL ERROR!!! Argument {path} is not an existing directory!")
             sys.exit()
         # Default folder is current directory
         self.folder = os.getcwd()
@@ -87,9 +84,6 @@ class PysageGUI(object):
         # Create the folder if this does not exist
         if not os.path.exists(self.folder):
             os.makedirs(self.folder)
-            
-        # Set seed for random()
-        random.seed(SEED) # Maybe useless, decide if we want to shuffle color palettes...
         
         # Phylogenetic tree
         self.tree = None
@@ -178,8 +172,6 @@ class PysageGUI(object):
                     break
             if not found:
                 self.hor_colors.append(elem)
-        #sns.palplot(self.hor_colors)
-        #plt.show()
         # List of palettes used to color monomers (the ones not used for HORs)
         current_palette = []
         for elem in SNS_PALETTES:
@@ -213,8 +205,6 @@ class PysageGUI(object):
                     break
             if not found:
                 self.colors.append(elem)   
-        #sns.palplot(self.colors)
-        #plt.show()
         # Convert RGB to HEX colors
         self.colors = [mcolors.rgb2hex(elem) for elem in self.colors]
         self.hor_colors = [mcolors.rgb2hex(elem) for elem in self.hor_colors]
@@ -355,31 +345,6 @@ class PysageGUI(object):
             self.popupMsg("You must select the file before loading!!!")
             return
             
-    ##########################################################################
-    # Method that checks if a monomer belongs also to other HORs
-    def checkMonomerInOtherHORs(self, mono, hor):
-        isIn = False
-        omono = None
-        # Loop over clicked nodes
-        for elem in self.clicked:
-            if elem != hor:
-                mono_and_locs = self.hor_dict[elem]
-                # Loop over monomers of this HOR
-                monomers = mono_and_locs[0]
-                for cmono in monomers:
-                    clades = self.tree.find_clades(cmono)
-                    for clade in clades:
-                        subclades = clade.find_clades()
-                        for sclade in subclades:
-                            if sclade.name and sclade.name == mono:
-                                # The monomer has been found in another HOR
-                                isIn = True
-                                omono = cmono
-                                break
-            if isIn:
-                break
-        return isIn, omono
-        
     ##########################################################################
     # Method that returns the HORs
     def extractHORs(self):
@@ -1724,14 +1689,12 @@ class PysageGUI(object):
                         cloc_end = cloc[1]
                         # Check whether locations overlap
                         if cloc_start <= oloc_start and cloc_end >= oloc_end:
-                            #print("TOTAL OVERLAP (CURR CONTAINS OTHER): ", self.hors[i], self.hors[j])
                             # cloc contains oloc -> remove oloc
                             if oloc not in olocs_to_remove:
                                 olocs_to_remove.append(oloc)
                         else:
                             # Check whether oloc contains cloc
                             if oloc_start <= cloc_start and oloc_end >= cloc_end:
-                                #print("TOTAL OVERLAP (CURR CONTAINED IN OTHER): ", self.hors[i], self.hors[j])
                                 # oloc contains cloc -> remove cloc
                                 if cloc not in clocs_to_remove:
                                     clocs_to_remove.append(cloc)
@@ -1775,7 +1738,6 @@ class PysageGUI(object):
                             cloc_end = cloc[1]
                             # Check whether locations partially overlap
                             if cloc_end > oloc_start and cloc_end < oloc_end:
-                                #print("PARTIAL OVERLAP: ", chor, ohor)
                                 if self.coverage[chor] >= self.coverage[ohor]:
                                     oloc[0] = cloc[1]
                                 else:
@@ -2187,10 +2149,10 @@ class PysageGUI(object):
             fp.write("%s\t%d\t%d\tmono\t0\t+\t%d\t%d\t128,128,128\n" % (self.seq_name, abs_start + cdata[1], abs_end, abs_start + cdata[1], abs_end))
         fp.close()
         
+        """ 
         # Save CSV file containing associations
         df = pd.DataFrame(data=self.data)
         df.to_csv(os.path.join(self.folder, self.seq_name + '_name_association.csv'), sep=',', index=False)
-        """ 
         # Save new XML file
         new_trees = PX.Phyloxml(phylogenies=[self.tree_for_file, self.hor_tree_for_file], attributes={'xsd': 'http://www.w3.org/2001/XMLSchema'})
         fname_no_ext = os.path.splitext(self.filename)[0]
@@ -2232,8 +2194,6 @@ class PysageGUI(object):
     ##########################################################################
     # GUI intialize function: setup the tk environment
     def initialize(self):
-        #print(self.master.winfo_screenwidth(), self.master.winfo_screenheight())
-        #print(self.master.winfo_width(), self.master.winfo_height())
         screen_width = self.master.winfo_screenwidth()
         screen_height = self.master.winfo_screenheight()
         self.master.geometry("%dx%d" % (screen_width, screen_height))
@@ -2272,7 +2232,9 @@ class PysageGUI(object):
         # Combobox creation
         xml_file_values = [os.path.splitext(os.path.splitext(filename)[0])[0] for filename in os.listdir(self.filedir) if filename.endswith(".xml")]
         if len(xml_file_values) == 0:
-            self.popupMsg(f"No xml files found in directory {self.filedir}...")
+            #self.popupMsg(f"No xml files found in directory {self.filedir}...")
+            print(f"FATAL ERROR!!! No xml files found in directory {self.filedir}!")
+            sys.exit()
         # Make visible only files without the suffix "monomers" or "hors"
         file_values = []
         for elem in xml_file_values:
