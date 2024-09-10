@@ -1724,27 +1724,29 @@ class PysageGUI(object):
                 coverage += (loc[1] - loc[0])
             self.coverage[hor] = coverage
         # Loop over HORs to see whether some of them overlap
-        for i in range(len(self.hors)):
+        i = 0
+        while i < len(self.hors) - 1:
+        #for i in range(len(self.hors)):
             chor = self.hors[i]
             # Get current locations
             clocs = self.locations[i]
-            for j in range(len(self.hors)):
-                if i != j:
-                    ohor = self.hors[j]
-                    # Get other locations
-                    olocs = self.locations[j]
-                    for oloc in olocs:
-                        oloc_start = oloc[0]
-                        oloc_end = oloc[1]
-                        for cloc in clocs:
-                            cloc_start = cloc[0]
-                            cloc_end = cloc[1]
-                            # Check whether locations partially overlap
-                            if cloc_end > oloc_start and cloc_end < oloc_end:
-                                if self.coverage[chor] >= self.coverage[ohor]:
-                                    oloc[0] = cloc[1]
-                                else:
-                                    cloc[1] = oloc[0]
+            j = i + 1
+            while j < len(self.hors):
+                ohor = self.hors[j]
+                # Get other locations
+                olocs = self.locations[j]
+                for oloc in olocs:
+                    oloc_start = oloc[0]
+                    oloc_end = oloc[1]
+                    for cloc in clocs:
+                        cloc_start = cloc[0]
+                        cloc_end = cloc[1]
+                        # Check whether locations partially overlap
+                        if cloc_end > oloc_start and cloc_end < oloc_end:
+                            if self.coverage[chor] >= self.coverage[ohor]:
+                                oloc[0] = cloc[1]
+                            else:
+                                cloc[1] = oloc[0]
                 j += 1
             i += 1
            
@@ -1960,6 +1962,7 @@ class PysageGUI(object):
             # Append start, end, HOR and strand
             for loc in locs:
                 if loc[0] > loc[1]:
+                    print(loc[0], loc[1])
                     print(monos)
                     sys.exit()
                 bed_data.append([loc[0], loc[1], mono_str, loc[2]])
@@ -2009,7 +2012,7 @@ class PysageGUI(object):
                     # Two HORs have same start and end locations
                     # Build names (keys for dict of distances)
                     prev_mono_str = str(prev_mono.count('F')) + prev_mono.replace(',','')
-                    curr_mono_str = str(prev_mono.count('F')) + curr_mono.replace(',','')
+                    curr_mono_str = str(curr_mono.count('F')) + curr_mono.replace(',','')
                     # Get distances and compare them
                     prev_dist = hor_dists[prev_mono_str]
                     curr_dist = hor_dists[curr_mono_str]
