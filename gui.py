@@ -95,6 +95,7 @@ class PysageGUI(object):
         self.hor_root = None
         self.hor_dict = None
         self.hor_lengths = None
+        self.hor_dist_from_root = None
         # Family name counter
         self.fcnt = None
         # Chromosome sequence (start and end)
@@ -337,6 +338,8 @@ class PysageGUI(object):
             assert self.hor_root is not None, "HORs tree: root not found!!!"
             # Get list of monomers for each hor (useful to print data)
             self.calcHorsMonomersList(old_names, new_names)
+            # Calc depths
+            self.hor_dist_from_root = self.hor_tree.depths(unit_branch_lengths=True)
             # Save CSV file containing associations
             self.data = {"old_name": old_names, "new_name": new_names}
             self.tree_for_file = copy.deepcopy(self.tree)
@@ -1798,7 +1801,7 @@ class PysageGUI(object):
         # Check self overlap
         #self.checkSelfOverlap() # Management of overlaps between locations in the same HOR
         # Check whether HORs fully overlap
-        self.checkFullOverlap()
+        #self.checkFullOverlap()
         # Check whether HORs partially overlap
         self.checkPartialOverlap()
         # Set zoom flag to false
@@ -1928,6 +1931,13 @@ class PysageGUI(object):
     ##########################################################################    
     # Get output
     def getOutput(self):
+        keys = self.hor_dist_from_root.keys()
+        hor_dists = {}
+        for hor in self.clicked:
+            for elem in keys:
+                if hor == elem.name:
+                    hor_dists[hor] = self.hor_dist_from_root[elem]
+        print(hor_dists)
         # Update counter for filenames
         self.filecnt += 1
         # List of selected HORs, name association, BED file, phyloxml?
@@ -1972,6 +1982,7 @@ class PysageGUI(object):
                 bdata.append([0, cdata[1], cdata[2], cdata[3]])
         else:
             bdata.append([cdata[0], cdata[1], cdata[2], cdata[3]])
+        #print(bdata)
         # Store previous data
         prev_id = 0
         prev_start = cdata[0]
@@ -1992,7 +2003,53 @@ class PysageGUI(object):
             # Check if there is an overlap
             if curr_start >= prev_start and curr_end <= prev_end:
                 # Overlap -> Ignore current row
-                pass
+                #pass
+                # Check if the overlap is perfect (same start and end locations)
+                if curr_start == prev_start and curr_end == prev_end:
+                    # Two HORs have same start and end locations
+                    # Build names (keys for dict of distances)
+                    prev_mono_str = str(prev_mono.count('F')) + prev_mono.replace(',','')
+                    curr_mono_str = str(prev_mono.count('F')) + curr_mono.replace(',','')
+                    # Get distances and compare them
+                    prev_dist = hor_dists[prev_mono_str]
+                    curr_dist = hor_dists[curr_mono_str]
+                    if prev_dist == curr_dist:
+                        # Two HORs have the same distance from the HOR root -> bed file will contain both
+                        bdata.append([curr_start, curr_end, curr_mono, curr_strand])
+                    else:
+                        # Check if current HOR is farther than the previous
+                        if curr_dist > prev_dist:
+                            # Current HOR is at a higher distance -> update bed data
+                            pdata = bdata[-1]
+                            pdata[2] = curr_mono
+                            pdata[3] = curr_strand
+                            # Update information about monomer currently stored
+                            prev_mono = curr_mono
+                            prev_strand = curr_strand
+                else:
+                    print(prev_start, prev_end, prev_mono, curr_start, curr_end, curr_mono)
+                    # Get previous entry
+                    pdata = bdata[-1]
+                    old_start = pdata[0]
+                    old_end = pdata[1]
+                    old_mono = pdata[2]
+                    old_strand = pdata[3]
+                    # Add new entry
+                    bdata.append([curr_start, curr_end, curr_mono, curr_strand])
+                    prev_start = curr_start
+                    prev_end = curr_end
+                    prev_mono = curr_mono
+                    prev_strand = curr_strand
+                    # Add remaining part of previous HOR
+                    print(old_end, curr_end)
+                    if old_end > curr_end:
+                        bdata.append([curr_end, old_end, old_mono, old_strand])
+                        prev_start = curr_end
+                        prev_end = old_end
+                        prev_mono = old_mono
+                        prev_strand = old_strand
+                    # Previous end is set to current start
+                    pdata[1] = curr_start
             elif curr_start < prev_end:
                 print(i, curr_start, curr_end, curr_mono, curr_strand)
                 print(prev_id, prev_start, prev_end, prev_mono, prev_strand)
@@ -2044,6 +2101,7 @@ class PysageGUI(object):
                         prev_end = curr_end
                         prev_mono = curr_mono
             i += 1
+            #print(bdata)
         # Add completion of the sequence
         if curr_end != (abs_end - abs_start):
             if curr_mono != "mono":
@@ -2051,7 +2109,7 @@ class PysageGUI(object):
             else:
                 pdata = bdata[-1]
                 pdata[1] = (abs_end - abs_start)
-               
+        #print(bdata)       
         # Return the list of selected HORs
         horfile = self.seq_name + "_selected_hor_list_" + str(self.filecnt) + ".txt"
         fp = open(os.path.join(self.folder, horfile), "w")
