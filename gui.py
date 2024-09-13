@@ -1742,7 +1742,7 @@ class PysageGUI(object):
                         cloc_start = cloc[0]
                         cloc_end = cloc[1]
                         # Check whether locations partially overlap
-                        if cloc_end > oloc_start and cloc_end < oloc_end:
+                        if cloc_start < oloc_start and cloc_end > oloc_start and cloc_end < oloc_end:
                             if self.coverage[chor] >= self.coverage[ohor]:
                                 oloc[0] = cloc[1]
                             else:
