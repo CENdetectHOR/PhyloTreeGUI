@@ -356,9 +356,36 @@ class PysageGUI(object):
         self.hors = []
         self.locations = []
         self.monomer_colors = []
+        #"""
+        keys = self.hor_dist_from_root.keys()
+        hor_dists = {}
+        for hor in self.clicked:
+            for elem in keys:
+                if hor == elem.name:
+                    hor_dists[hor] = self.hor_dist_from_root[elem]
+        #"""
+        # Sort clicked HORs based on distance from root (closest first)
+        clicked = []
+        for hor in self.clicked:
+            dist = hor_dists[hor]
+            if len(clicked) == 0:
+                clicked.append(hor)
+            else:
+                insert = False
+                for i, elem in enumerate(clicked):
+                    cdist = hor_dists[elem]
+                    if dist < cdist:
+                        clicked.insert(i, hor)
+                        insert = True
+                        break
+                if not insert:
+                    clicked.append(hor)
+        #print(self.clicked)
+        #print(clicked)
+        #sys.exit()
         examined = []
         elem = 0
-        for hor in self.clicked:
+        for hor in clicked:#self.clicked:
             # Extract monomers and locations
             mono_and_locs = self.hor_dict[hor]
             monomers = mono_and_locs[0]
