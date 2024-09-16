@@ -96,6 +96,7 @@ class PysageGUI(object):
         self.hor_dict = None
         self.hor_lengths = None
         self.hor_dist_from_root = None
+        self.hor_dists = None
         # Family name counter
         self.fcnt = None
         # Chromosome sequence (start and end)
@@ -356,36 +357,38 @@ class PysageGUI(object):
         self.hors = []
         self.locations = []
         self.monomer_colors = []
-        #"""
         keys = self.hor_dist_from_root.keys()
-        hor_dists = {}
+        self.hor_dists = {}
         for hor in self.clicked:
             for elem in keys:
                 if hor == elem.name:
-                    hor_dists[hor] = self.hor_dist_from_root[elem]
-        #"""
+                    self.hor_dists[hor] = self.hor_dist_from_root[elem]
         # Sort clicked HORs based on distance from root (closest first)
         clicked = []
-        for hor in self.clicked:
-            dist = hor_dists[hor]
+        clicked_colors = []
+        for hor, color in zip(self.clicked, self.clicked_colors):
+            dist = self.hor_dists[hor]
             if len(clicked) == 0:
                 clicked.append(hor)
+                clicked_colors.append(color)
             else:
                 insert = False
                 for i, elem in enumerate(clicked):
-                    cdist = hor_dists[elem]
+                    cdist = self.hor_dists[elem]
                     if dist < cdist:
                         clicked.insert(i, hor)
+                        clicked_colors.insert(i, color)
                         insert = True
                         break
                 if not insert:
                     clicked.append(hor)
-        #print(self.clicked)
-        #print(clicked)
-        #sys.exit()
+                    clicked_colors.append(color)
+        # Overwrite list with sorted ones (based on distance)
+        self.clicked = clicked
+        self.clicked_colors = clicked_colors
         examined = []
         elem = 0
-        for hor in clicked:#self.clicked:
+        for hor in self.clicked:
             # Extract monomers and locations
             mono_and_locs = self.hor_dict[hor]
             monomers = mono_and_locs[0]
@@ -1693,114 +1696,90 @@ class PysageGUI(object):
         
     ##########################################################################
     # Check whether HORs fully overlap and manage corresponding locations
-    def checkFullOverlap(self):
+    def checkOverlap(self):
         # Check consistency of the data
         assert len(self.hors) == len(self.monomers) == len(self.locations), "Inconsistent data!"
-        # Loop over HORs to see whether some of them overlap
+        # Loop over HORs to see whether some of them overlap (either totally or partially)
         i = 0
         while i < len(self.hors) - 1:
-            # Get current monomer
-            cmono = self.monomers[i]
+            # Get current HOR
+            chor = self.hors[i]
+            # Get current locations
             clocs = self.locations[i]
             # List of locations to remove
             clocs_to_remove = []
+            # List of locations to insert
+            clocs_to_add = []
             j = i + 1
             while j < len(self.hors):
-                # Get other monomer
-                omono = self.monomers[j]
+                # Get other HOR
+                ohor = self.hors[j]
+                # Get other locations
                 olocs = self.locations[j]
                 # List of locations to remove
                 olocs_to_remove = []
-                for oloc in olocs:
+                # List of locations to insert
+                olocs_to_add = []
+                for oidx, oloc in enumerate(olocs):
                     oloc_start = oloc[0]
                     oloc_end = oloc[1]
-                    for cloc in clocs:
+                    oloc_strand = oloc[2]
+                    for cidx, cloc in enumerate(clocs):
                         cloc_start = cloc[0]
                         cloc_end = cloc[1]
-                        # Check whether locations overlap
-                        if cloc_start <= oloc_start and cloc_end >= oloc_end:
-                            # cloc contains oloc -> remove oloc
-                            if oloc not in olocs_to_remove:
-                                olocs_to_remove.append(oloc)
+                        cloc_strand = cloc[2]
+                        # Check partial overlaps first
+                        # Check whether locations partially overlap
+                        if cloc_start < oloc_start and cloc_end > oloc_start and cloc_end < oloc_end:
+                            # Modify locations based on distance from root (farther to be kept, since it is more specific)
+                            if self.hor_dists[chor] >= self.hor_dists[ohor]:
+                                oloc[0] = cloc[1]
+                            else:
+                                cloc[1] = oloc[0]
                         else:
-                            # Check whether oloc contains cloc
-                            if oloc_start <= cloc_start and oloc_end >= cloc_end:
-                                # oloc contains cloc -> remove cloc
-                                if cloc not in clocs_to_remove:
-                                    clocs_to_remove.append(cloc)
+                            # Now check full overlaps
+                            if cloc_start <= oloc_start and cloc_end >= oloc_end:
+                                # cloc contains oloc
+                                # Check distance from root
+                                if self.hor_dists[chor] >= self.hor_dists[ohor]:
+                                    # remove oloc (chor is more specific)
+                                    if oloc not in olocs_to_remove:
+                                        olocs_to_remove.append(oloc)
+                                else:
+                                    # Modify locations
+                                    # Copy current end of cloc
+                                    tmp_end = cloc[1]
+                                    cloc[1] = oloc[0]
+                                    clocs_to_add.append([oloc[1], tmp_end, cloc[2]])
+                            else:
+                                # Check whether oloc contains cloc
+                                if oloc_start <= cloc_start and oloc_end >= cloc_end:
+                                    # oloc contains cloc
+                                    # Check distance from root
+                                    if self.hor_dists[ohor] >= self.hor_dists[chor]:
+                                        # remove cloc (chor is more specific)
+                                        if cloc not in clocs_to_remove:
+                                            clocs_to_remove.append(cloc)
+                                    else:
+                                        # Modify locations
+                                        # Copy current end of cloc
+                                        tmp_end = oloc[1]
+                                        oloc[1] = cloc[0]
+                                        olocs_to_add.append([cloc[1], tmp_end, oloc[2]])
                 # Remove locations overlapping
                 for oloc in olocs_to_remove:
                     self.locations[j].remove(oloc)
+                # Add locations
+                for oloc in olocs_to_add:
+                    self.locations[j].append(oloc)
                 j += 1
             # Remove locations overlapping
             for cloc in clocs_to_remove:
                 self.locations[i].remove(cloc)
+            # Add locations
+            for cloc in clocs_to_add:
+                self.locations[i].append(cloc)
             i += 1
-            
-    ##########################################################################
-    # Check whether HORs partially overlap and manage corresponding locations
-    def checkPartialOverlap(self):
-        # Check consistency of the data
-        assert len(self.hors) == len(self.monomers) == len(self.locations), "Inconsistent data!"
-        # Compute coverage for each HOR
-        self.coverage = {}
-        for i, hor in enumerate(self.hors):
-            locs = self.locations[i]
-            coverage = 0
-            for loc in locs:
-                coverage += (loc[1] - loc[0])
-            self.coverage[hor] = coverage
-        # Loop over HORs to see whether some of them overlap
-        i = 0
-        while i < len(self.hors) - 1:
-        #for i in range(len(self.hors)):
-            chor = self.hors[i]
-            # Get current locations
-            clocs = self.locations[i]
-            j = i + 1
-            while j < len(self.hors):
-                ohor = self.hors[j]
-                # Get other locations
-                olocs = self.locations[j]
-                for oloc in olocs:
-                    oloc_start = oloc[0]
-                    oloc_end = oloc[1]
-                    for cloc in clocs:
-                        cloc_start = cloc[0]
-                        cloc_end = cloc[1]
-                        # Check whether locations partially overlap
-                        if cloc_start < oloc_start and cloc_end > oloc_start and cloc_end < oloc_end:
-                            if self.coverage[chor] >= self.coverage[ohor]:
-                                oloc[0] = cloc[1]
-                            else:
-                                cloc[1] = oloc[0]
-                j += 1
-            i += 1
-           
-    ##########################################################################
-    # Check whether HORs have overlapping and/or redundant locations (discouraged!)
-    def checkSelfOverlap(self):
-        for j, (hor, locs) in enumerate(zip(self.hors, self.locations)):
-            nlocs = len(locs)
-            indices_to_remove = []
-            i = 0
-            while i < nlocs - 1:
-                cloc = locs[i]
-                oloc = locs[i + 1]
-                # Check if locations overlap
-                if cloc[0] == oloc[0] and cloc[1] <= oloc[1]:
-                    if i not in indices_to_remove:
-                        indices_to_remove.append(i)
-                if cloc[0] <= oloc[0] and cloc[1] == oloc[1]:
-                    if (i + 1) not in indices_to_remove:
-                        indices_to_remove.append(i + 1)
-                i += 1
-            # Remove duplicated and overlapping locations
-            idx = len(indices_to_remove) - 1
-            while idx >= 0:
-                elem = indices_to_remove[idx]
-                del locs[elem]
-                idx -= 1
             
     ##########################################################################    
     # Show data
@@ -1827,12 +1806,8 @@ class PysageGUI(object):
             
         # Extract HORs
         self.extractHORs()
-        # Check self overlap
-        #self.checkSelfOverlap() # Management of overlaps between locations in the same HOR
-        # Check whether HORs fully overlap
-        #self.checkFullOverlap()
-        # Check whether HORs partially overlap
-        self.checkPartialOverlap()
+        # Check overlap
+        self.checkOverlap()
         # Set zoom flag to false
         self.zoomed = False
         # Plot data
@@ -1960,13 +1935,6 @@ class PysageGUI(object):
     ##########################################################################    
     # Get output
     def getOutput(self):
-        keys = self.hor_dist_from_root.keys()
-        hor_dists = {}
-        for hor in self.clicked:
-            for elem in keys:
-                if hor == elem.name:
-                    hor_dists[hor] = self.hor_dist_from_root[elem]
-        print(hor_dists)
         # Update counter for filenames
         self.filecnt += 1
         # List of selected HORs, name association, BED file, phyloxml?
@@ -2041,8 +2009,8 @@ class PysageGUI(object):
                     prev_mono_str = str(prev_mono.count('F')) + prev_mono.replace(',','')
                     curr_mono_str = str(curr_mono.count('F')) + curr_mono.replace(',','')
                     # Get distances and compare them
-                    prev_dist = hor_dists[prev_mono_str]
-                    curr_dist = hor_dists[curr_mono_str]
+                    prev_dist = self.hor_dists[prev_mono_str]
+                    curr_dist = self.hor_dists[curr_mono_str]
                     if prev_dist == curr_dist:
                         # Two HORs have the same distance from the HOR root -> bed file will contain both
                         bdata.append([curr_start, curr_end, curr_mono, curr_strand])
