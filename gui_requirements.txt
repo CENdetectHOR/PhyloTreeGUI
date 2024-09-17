@@ -14,8 +14,9 @@ Python versions will be ensured.
 
 In order to make the PhyloTreeGUIv1.0 tool work, you need to install some packages:
 
-tkinter version 8.6
-matplotlib version 3.8.x
+tkinter (version 8.6)
+matplotlib (version 3.8.x)
+bio (version 1.6.2)
 numpy
 pandas
 seaborn
