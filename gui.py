@@ -94,7 +94,6 @@ class PysageGUI(object):
         self.hor_tree_backup = None # Backup for HORs' tree
         self.hor_root = None
         self.hor_dict = None
-        self.hor_lengths = None
         self.hor_dist_from_root = None
         self.hor_dists = None
         # Family name counter
@@ -235,7 +234,6 @@ class PysageGUI(object):
         all_clades = self.hor_tree.find_clades()
         # Build dict associating to each HOR the corresponding list of monomer(s)
         self.hor_dict = {}
-        self.hor_lengths = {}
         cnt = 0
         for clade in all_clades:
             if cnt == 0:
@@ -285,7 +283,6 @@ class PysageGUI(object):
                     prop.value = new_value
                     # Store monomers and locations for this HOR
                     self.hor_dict[clade.name] = [new_monos, [seq.location for seq in clade.sequences if clade.sequences is not None]]
-                    self.hor_lengths[clade.name] = len(new_monos)
                     if len(new_monos) > self.hor_len:
                         self.hor_len = len(new_monos)
      
@@ -1974,7 +1971,6 @@ class PysageGUI(object):
                 bdata.append([0, cdata[1], cdata[2], cdata[3]])
         else:
             bdata.append([cdata[0], cdata[1], cdata[2], cdata[3]])
-        #print(bdata)
         # Store previous data
         prev_id = 0
         prev_start = cdata[0]
@@ -2019,7 +2015,6 @@ class PysageGUI(object):
                             prev_mono = curr_mono
                             prev_strand = curr_strand
                 else:
-                    print(prev_start, prev_end, prev_mono, curr_start, curr_end, curr_mono)
                     # Get previous entry
                     pdata = bdata[-1]
                     old_start = pdata[0]
@@ -2033,7 +2028,6 @@ class PysageGUI(object):
                     prev_mono = curr_mono
                     prev_strand = curr_strand
                     # Add remaining part of previous HOR
-                    print(old_end, curr_end)
                     if old_end > curr_end:
                         bdata.append([curr_end, old_end, old_mono, old_strand])
                         prev_start = curr_end
@@ -2093,7 +2087,6 @@ class PysageGUI(object):
                         prev_end = curr_end
                         prev_mono = curr_mono
             i += 1
-            #print(bdata)
         # Add completion of the sequence
         if curr_end != (abs_end - abs_start):
             if curr_mono != "mono":
@@ -2101,7 +2094,6 @@ class PysageGUI(object):
             else:
                 pdata = bdata[-1]
                 pdata[1] = (abs_end - abs_start)
-        #print(bdata)       
         # Return the list of selected HORs
         horfile = self.seq_name + "_selected_hor_list_" + str(self.filecnt) + ".txt"
         fp = open(os.path.join(self.folder, horfile), "w")
