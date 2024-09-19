@@ -2185,8 +2185,9 @@ class PysageGUI(object):
                 break
             cnt += 1
         if found:
+            assert idx >= 0 and idx < len(self.clicked_colors)
             # Extract the color
-            ccolor = self.hor_colors[idx % len(self.hor_colors)]
+            ccolor = self.clicked_colors[idx]#self.hor_colors[idx % len(self.hor_colors)]
             # Convert the color string into RGB (values bounded in the range [0,1])
             red, green, blue = mcolors.to_rgb(ccolor)
             # Adjust red, green and blue in the range [0,255]
@@ -2196,7 +2197,7 @@ class PysageGUI(object):
             fp.write("%s\t%d\t%d\t%s\t0\t%s\t%d\t%d\t%d,%d,%d\n" % (self.seq_name, abs_start + cdata[0], abs_start + cdata[1], cdata[2], cdata[3], abs_start + cdata[0], abs_start + cdata[1], red, green, blue))
         else:
             fp.write("%s\t%d\t%d\t%s\t0\t%s\t%d\t%d\t128,128,128\n" % (self.seq_name, abs_start + cdata[0], abs_start + cdata[1], cdata[2], cdata[3], abs_start + cdata[0], abs_start + cdata[1]))
-        # Other rows
+        # Other rowsself.hor_colors
         row = 1
         while row < rows:
             # Get current data
@@ -2214,8 +2215,9 @@ class PysageGUI(object):
                     break
                 cnt += 1
             if found:
+                assert idx >= 0 and idx < len(self.clicked_colors)
                 # Extract the color
-                ccolor = self.hor_colors[idx % len(self.hor_colors)]
+                ccolor = self.clicked_colors[idx]#self.hor_colors[idx % len(self.hor_colors)]
                 # Convert the color string into RGB (values bounded in the range [0,1])
                 red, green, blue = mcolors.to_rgb(ccolor)
                 # Adjust red, green and blue in the range [0,255]
