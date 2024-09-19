@@ -1727,41 +1727,70 @@ class PysageGUI(object):
                         # Check partial overlaps first
                         # Check whether locations partially overlap
                         if cloc_start < oloc_start and cloc_end > oloc_start and cloc_end < oloc_end:
+                            #print("PARTIAL", chor, cloc[0], cloc[1], ohor, oloc[0], oloc[1])
                             # Modify locations based on distance from root (farther to be kept, since it is more specific)
-                            if self.hor_dists[chor] >= self.hor_dists[ohor]:
+                            if self.hor_dists[chor] > self.hor_dists[ohor]:
                                 oloc[0] = cloc[1]
+                                #print(ohor, oloc[0], oloc[1])
                             else:
                                 cloc[1] = oloc[0]
+                                #print(chor, cloc[0], cloc[1])
                         else:
                             # Now check full overlaps
-                            if cloc_start <= oloc_start and cloc_end >= oloc_end:
-                                # cloc contains oloc
-                                # Check distance from root
-                                if self.hor_dists[chor] >= self.hor_dists[ohor]:
-                                    # remove oloc (chor is more specific)
+                            if cloc_start == oloc_start and cloc_end == oloc_end:
+                                #print("PERFECT", chor, cloc[0], cloc[1], ohor, oloc[0], oloc[1])
+                                # Two HORs perfectly overlap (same start and end locations) -> keep the one further from the root
+                                if self.hor_dists[chor] > self.hor_dists[ohor]:
                                     if oloc not in olocs_to_remove:
                                         olocs_to_remove.append(oloc)
                                 else:
-                                    # Modify locations
-                                    # Copy current end of cloc
-                                    tmp_end = cloc[1]
-                                    cloc[1] = oloc[0]
-                                    clocs_to_add.append([oloc[1], tmp_end, cloc[2]])
+                                    if cloc not in clocs_to_remove:
+                                        clocs_to_remove.append(cloc)
                             else:
-                                # Check whether oloc contains cloc
-                                if oloc_start <= cloc_start and oloc_end >= cloc_end:
-                                    # oloc contains cloc
+                                if cloc_start <= oloc_start and cloc_end >= oloc_end:
+                                    #print("FULL1", chor, cloc[0], cloc[1], ohor, oloc[0], oloc[1])
+                                    # cloc contains oloc
                                     # Check distance from root
-                                    if self.hor_dists[ohor] >= self.hor_dists[chor]:
-                                        # remove cloc (chor is more specific)
-                                        if cloc not in clocs_to_remove:
-                                            clocs_to_remove.append(cloc)
+                                    if self.hor_dists[chor] > self.hor_dists[ohor]:
+                                        # remove oloc (chor is more specific)
+                                        if oloc not in olocs_to_remove:
+                                            olocs_to_remove.append(oloc)
                                     else:
                                         # Modify locations
                                         # Copy current end of cloc
-                                        tmp_end = oloc[1]
-                                        oloc[1] = cloc[0]
-                                        olocs_to_add.append([cloc[1], tmp_end, oloc[2]])
+                                        tmp_end = cloc[1]
+                                        if cloc[0] != oloc[0]:
+                                            cloc[1] = oloc[0]
+                                            #print(chor, cloc[0], cloc[1])
+                                        else:
+                                            if cloc not in clocs_to_remove:
+                                                clocs_to_remove.append(cloc)
+                                        if oloc[1] != tmp_end:
+                                            clocs_to_add.append([oloc[1], tmp_end, cloc[2]])
+                                            #print(chor, oloc[1], tmp_end)
+                                else:
+                                    # Check whether oloc contains cloc
+                                    if oloc_start <= cloc_start and oloc_end >= cloc_end:
+                                        #print("FULL2", chor, cloc[0], cloc[1], ohor, oloc[0], oloc[1])
+                                        # oloc contains cloc
+                                        # Check distance from root
+                                        if self.hor_dists[ohor] > self.hor_dists[chor]:
+                                            # remove cloc (chor is more specific)
+                                            if cloc not in clocs_to_remove:
+                                                clocs_to_remove.append(cloc)
+                                        else:
+                                            # Modify locations
+                                            # Copy current end of cloc
+                                            tmp_end = oloc[1]
+                                            if oloc[0] != cloc[0]:
+                                                oloc[1] = cloc[0]
+                                                #print(ohor, oloc[0], oloc[1])
+                                            else:
+                                                if oloc not in olocs_to_remove:
+                                                    olocs_to_remove.append(oloc)
+                                            if cloc[1] != tmp_end:
+                                                olocs_to_add.append([cloc[1], tmp_end, oloc[2]])
+                                                #print(ohor, cloc[1], tmp_end)
                 # Remove locations overlapping
                 for oloc in olocs_to_remove:
                     self.locations[j].remove(oloc)
@@ -1776,6 +1805,7 @@ class PysageGUI(object):
             for cloc in clocs_to_add:
                 self.locations[i].append(cloc)
             i += 1
+        #sys.exit()
             
     ##########################################################################    
     # Show data
@@ -1954,6 +1984,8 @@ class PysageGUI(object):
                 bed_data.append([loc[0], loc[1], mono_str, loc[2]])
         # Sort data based on locations
         bed_data.sort()
+        #print(bed_data)
+        #sys.exit()
         # Build actual data to be stored (i.e., we collapse info when needed)
         bdata = []
         ndata = len(bed_data)
@@ -1988,6 +2020,7 @@ class PysageGUI(object):
             curr_end = cdata[1]
             curr_mono = cdata[2]
             curr_strand = cdata[3]
+            """
             # Check if there is an overlap
             if curr_start >= prev_start and curr_end <= prev_end:
                 # Overlap -> Ignore current row
@@ -2036,11 +2069,18 @@ class PysageGUI(object):
                         prev_strand = old_strand
                     # Previous end is set to current start
                     pdata[1] = curr_start
-            elif curr_start < prev_end:
-                print(i, curr_start, curr_end, curr_mono, curr_strand)
-                print(prev_id, prev_start, prev_end, prev_mono, prev_strand)
-                # Weird row, continue
-                pass
+            """
+            if curr_start < prev_end:
+                #print(i, curr_start, curr_end, curr_mono, curr_strand)
+                #print(prev_id, prev_start, prev_end, prev_mono, prev_strand)
+                if curr_mono == prev_mono:
+                    # Some errors happened, we can fix it by modifying previous entry
+                    pdata = bdata[-1]
+                    pdata[1] = curr_end
+                    prev_end = curr_end
+                else:
+                    # Weird row, continue
+                    pass
             else:
                 # Check that current start is greater or equal than previous end
                 #assert curr_start >= prev_end, "Something strange happened when bed data have been sorted!!!"
