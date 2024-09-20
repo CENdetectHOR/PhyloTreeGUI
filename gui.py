@@ -1695,7 +1695,8 @@ class PysageGUI(object):
     def checkOverlap(self):
         # Check consistency of the data
         assert len(self.hors) == len(self.monomers) == len(self.locations), "Inconsistent data!"
-        # Loop over HORs to see whether some of them overlap (either totally or partially)
+        """
+        # Loop over HORs to check whether there are perfect overlaps, so we can remove the locations
         i = 0
         while i < len(self.hors) - 1:
             # Get current HOR
@@ -1724,6 +1725,66 @@ class PysageGUI(object):
                         cloc_start = cloc[0]
                         cloc_end = cloc[1]
                         cloc_strand = cloc[2]
+                        # Now check full overlaps
+                        if cloc_start == oloc_start and cloc_end == oloc_end:
+                            print("PERFECT", chor, cloc[0], cloc[1], ohor, oloc[0], oloc[1])
+                            # Two HORs perfectly overlap (same start and end locations) -> keep the one further from the root
+                            if self.hor_dists[chor] > self.hor_dists[ohor]:
+                                if oloc not in olocs_to_remove:
+                                    olocs_to_remove.append(oloc)
+                                    print("Removed", ohor, oloc[0], oloc[1])
+                            else:
+                                if cloc not in clocs_to_remove:
+                                    clocs_to_remove.append(cloc)
+                                    print("Removed", chor, cloc[0], cloc[1])
+                # Remove locations overlapping
+                for oloc in olocs_to_remove:
+                    self.locations[j].remove(oloc)
+                # Add locations
+                for oloc in olocs_to_add:
+                    self.locations[j].append(oloc)
+                j += 1
+            # Remove locations overlapping
+            for cloc in clocs_to_remove:
+                self.locations[i].remove(cloc)
+            # Add locations
+            for cloc in clocs_to_add:
+                self.locations[i].append(cloc)
+            i += 1
+        """
+        # Loop over HORs to see whether some of them overlap (either totally or partially)
+        i = 0
+        while i < len(self.hors) - 1:
+            # Get current HOR
+            chor = self.hors[i]
+            # Get current locations
+            clocs = self.locations[i]
+            # List of locations to remove
+            clocs_to_remove = []
+            # List of locations to insert
+            clocs_to_add = []
+            j = i + 1
+            while j < len(self.hors):
+                # Get other HOR
+                ohor = self.hors[j]
+                # Get other locations
+                olocs = self.locations[j]
+                # List of locations to remove
+                olocs_to_remove = []
+                # List of locations to insert
+                olocs_to_add = []
+                for oidx, oloc in enumerate(olocs):
+                    if oloc in olocs_to_remove:
+                        continue
+                    oloc_start = oloc[0]
+                    oloc_end = oloc[1]
+                    oloc_strand = oloc[2]
+                    for cidx, cloc in enumerate(clocs):
+                        if cloc in clocs_to_remove:
+                            continue
+                        cloc_start = cloc[0]
+                        cloc_end = cloc[1]
+                        cloc_strand = cloc[2]
                         # Check partial overlaps first
                         # Check whether locations partially overlap
                         if cloc_start < oloc_start and cloc_end > oloc_start and cloc_end < oloc_end:
@@ -1739,6 +1800,7 @@ class PysageGUI(object):
                             # Now check full overlaps
                             if cloc_start == oloc_start and cloc_end == oloc_end:
                                 #print("PERFECT", chor, cloc[0], cloc[1], ohor, oloc[0], oloc[1])
+                                #print("Weird!!!")
                                 # Two HORs perfectly overlap (same start and end locations) -> keep the one further from the root
                                 if self.hor_dists[chor] > self.hor_dists[ohor]:
                                     if oloc not in olocs_to_remove:
