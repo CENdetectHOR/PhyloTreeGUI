@@ -1788,51 +1788,50 @@ class PysageGUI(object):
                         # Check partial overlaps first
                         # Check whether locations partially overlap
                         if cloc_start < oloc_start and cloc_end > oloc_start and cloc_end < oloc_end:
-                            #print("PARTIAL", chor, cloc[0], cloc[1], ohor, oloc[0], oloc[1])
+                            print("PARTIAL", chor, cloc[0], cloc[1], ohor, oloc[0], oloc[1])
                             # Modify locations based on distance from root (farther to be kept, since it is more specific)
                             if self.hor_dists[chor] > self.hor_dists[ohor]:
                                 oloc[0] = cloc[1]
-                                #print(ohor, oloc[0], oloc[1])
+                                print(ohor, oloc[0], oloc[1])
                             else:
                                 cloc[1] = oloc[0]
-                                #print(chor, cloc[0], cloc[1])
+                                print(chor, cloc[0], cloc[1])
                         else:
                             # Now check full overlaps
                             if cloc_start == oloc_start and cloc_end == oloc_end:
-                                #print("PERFECT", chor, cloc[0], cloc[1], ohor, oloc[0], oloc[1])
-                                #print("Weird!!!")
+                                print("PERFECT", chor, cloc[0], cloc[1], ohor, oloc[0], oloc[1])
                                 # Two HORs perfectly overlap (same start and end locations) -> keep the one further from the root
                                 if self.hor_dists[chor] > self.hor_dists[ohor]:
                                     if oloc not in olocs_to_remove:
                                         olocs_to_remove.append(oloc)
-                                        #print("Removed", ohor, oloc[0], oloc[1])
+                                        print("Removed", ohor, oloc[0], oloc[1])
                                 else:
                                     if cloc not in clocs_to_remove:
                                         clocs_to_remove.append(cloc)
-                                        #print("Removed", chor, cloc[0], cloc[1])
+                                        print("Removed", chor, cloc[0], cloc[1])
                             else:
                                 if cloc_start <= oloc_start and cloc_end >= oloc_end:
-                                    #print("FULL1", chor, cloc[0], cloc[1], ohor, oloc[0], oloc[1])
+                                    print("FULL1", chor, cloc[0], cloc[1], ohor, oloc[0], oloc[1])
                                     # cloc contains oloc
                                     # Check distance from root
                                     if self.hor_dists[chor] > self.hor_dists[ohor]:
                                         # remove oloc (chor is more specific)
                                         if oloc not in olocs_to_remove:
                                             olocs_to_remove.append(oloc)
-                                            #print("Removed", ohor, oloc[0], oloc[1])
+                                            print("Removed", ohor, oloc[0], oloc[1])
                                     else:
                                         # Modify locations
                                         # Copy current end of cloc
                                         tmp_end = cloc[1]
                                         if cloc[0] != oloc[0]:
                                             cloc[1] = oloc[0]
-                                            #print(chor, cloc[0], cloc[1])
+                                            print(chor, cloc[0], cloc[1])
                                         else:
                                             if cloc not in clocs_to_remove:
                                                 clocs_to_remove.append(cloc)
                                         if oloc[1] != tmp_end:
                                             clocs_to_add.append([oloc[1], tmp_end, cloc[2]])
-                                            #print(chor, oloc[1], tmp_end)
+                                            print(chor, oloc[1], tmp_end)
                                 else:
                                     # Check whether oloc contains cloc
                                     if oloc_start <= cloc_start and oloc_end >= cloc_end:
@@ -1843,20 +1842,20 @@ class PysageGUI(object):
                                             # remove cloc (chor is more specific)
                                             if cloc not in clocs_to_remove:
                                                 clocs_to_remove.append(cloc)
-                                                #print("Removed", chor, cloc[0], cloc[1])
+                                                print("Removed", chor, cloc[0], cloc[1])
                                         else:
                                             # Modify locations
                                             # Copy current end of cloc
                                             tmp_end = oloc[1]
                                             if oloc[0] != cloc[0]:
                                                 oloc[1] = cloc[0]
-                                                #print(ohor, oloc[0], oloc[1])
+                                                print(ohor, oloc[0], oloc[1])
                                             else:
                                                 if oloc not in olocs_to_remove:
                                                     olocs_to_remove.append(oloc)
                                             if cloc[1] != tmp_end:
                                                 olocs_to_add.append([cloc[1], tmp_end, oloc[2]])
-                                                #print(ohor, cloc[1], tmp_end)
+                                                print(ohor, cloc[1], tmp_end)
                 # Remove locations overlapping
                 for oloc in olocs_to_remove:
                     self.locations[j].remove(oloc)
@@ -2050,7 +2049,7 @@ class PysageGUI(object):
                 bed_data.append([loc[0], loc[1], mono_str, loc[2]])
         # Sort data based on locations
         bed_data.sort()
-        #print(bed_data)
+        print(bed_data)
         #sys.exit()
         # Build actual data to be stored (i.e., we collapse info when needed)
         bdata = []
@@ -2086,13 +2085,16 @@ class PysageGUI(object):
             curr_end = cdata[1]
             curr_mono = cdata[2]
             curr_strand = cdata[3]
+            print(prev_id, prev_start, prev_end, prev_mono, i, curr_start, curr_end, curr_mono)
             #"""
             # Check if there is an overlap
             if curr_start >= prev_start and curr_end <= prev_end:
+                print("QUI1")
                 # Overlap -> Ignore current row
                 #pass
                 # Check if the overlap is perfect (same start and end locations)
                 if curr_start == prev_start and curr_end == prev_end:
+                    print("QUI2")
                     # Two HORs have same start and end locations
                     # Build names (keys for dict of distances)
                     prev_mono_str = str(prev_mono.count('F')) + prev_mono.replace(',','')
@@ -2101,11 +2103,14 @@ class PysageGUI(object):
                     prev_dist = self.hor_dists[prev_mono_str]
                     curr_dist = self.hor_dists[curr_mono_str]
                     if prev_dist == curr_dist:
+                        print("QUI3")
                         # Two HORs have the same distance from the HOR root -> bed file will contain both
                         bdata.append([curr_start, curr_end, curr_mono, curr_strand])
                     else:
+                        print("QUI4")
                         # Check if current HOR is farther than the previous
                         if curr_dist > prev_dist:
+                            print("QUI5")
                             # Current HOR is at a higher distance -> update bed data
                             pdata = bdata[-1]
                             pdata[2] = curr_mono
@@ -2113,26 +2118,60 @@ class PysageGUI(object):
                             # Update information about monomer currently stored
                             prev_mono = curr_mono
                             prev_strand = curr_strand
-                else:
-                    # Get previous entry
-                    pdata = bdata[-1]
-                    old_start = pdata[0]
-                    old_end = pdata[1]
-                    old_mono = pdata[2]
-                    old_strand = pdata[3]
-                    # Add new entry
-                    bdata.append([curr_start, curr_end, curr_mono, curr_strand])
-                    prev_start = curr_start
-                    prev_end = curr_end
-                    prev_mono = curr_mono
-                    prev_strand = curr_strand
-                    # Add remaining part of previous HOR
-                    if old_end > curr_end:
+                elif curr_start == prev_start or curr_end == prev_end:
+                    if curr_start == prev_start:
+                        pdata = bdata[-1]
+                        old_start = pdata[0]
+                        old_end = pdata[1]
+                        old_mono = pdata[2]
+                        old_strand = pdata[3]
+                        pdata[1] = curr_end
+                        pdata[2] = curr_mono
+                        pdata[3] = curr_strand
                         bdata.append([curr_end, old_end, old_mono, old_strand])
                         prev_start = curr_end
                         prev_end = old_end
                         prev_mono = old_mono
                         prev_strand = old_strand
+                    else:
+                        old_start = pdata[0]
+                        old_end = pdata[1]
+                        old_mono = pdata[2]
+                        old_strand = pdata[3]
+                        pdata[1] = curr_start
+                        bdata.append([curr_start, curr_end, curr_mono, curr_strand])
+                        prev_start = curr_start
+                        prev_end = curr_end
+                        prev_mono = curr_mono
+                        prev_strand = curr_strand
+                else:
+                    print("QUI6")
+                    # Get previous entry
+                    pdata = bdata[-1]
+                    print(pdata)
+                    old_start = pdata[0]
+                    old_end = pdata[1]
+                    old_mono = pdata[2]
+                    old_strand = pdata[3]
+                    print(old_start, old_end, old_mono, curr_start, curr_end, curr_mono)
+                    # Add new entry
+                    bdata.append([curr_start, curr_end, curr_mono, curr_strand])
+                    print(pdata)
+                    prev_start = curr_start
+                    prev_end = curr_end
+                    prev_mono = curr_mono
+                    prev_strand = curr_strand
+                    prev_id = i
+                    # Add remaining part of previous HOR
+                    if old_end > curr_end:
+                        print("QUI7")
+                        bdata.append([curr_end, old_end, old_mono, old_strand])
+                        print(pdata)
+                        prev_start = curr_end
+                        prev_end = old_end
+                        prev_mono = old_mono
+                        prev_strand = old_strand
+                        prev_id = i
                     # Previous end is set to current start
                     pdata[1] = curr_start
             #"""
@@ -2141,26 +2180,31 @@ class PysageGUI(object):
                 #print(prev_id, prev_start, prev_end, prev_mono, prev_strand)
                 #"""
                 if curr_mono == prev_mono:
+                    print("QUI8")
                     # Some errors happened, we can fix it by modifying previous entry
                     pdata = bdata[-1]
                     pdata[1] = curr_end
                     prev_end = curr_end
                 else:
                     # Weird row, continue
+                    print("QUI9")
                     pass
                 #"""
                 #pass
             else:
+                print("QUI10")
                 # Check that current start is greater or equal than previous end
                 #assert curr_start >= prev_end, "Something strange happened when bed data have been sorted!!!"
                 if curr_start == prev_end:
                     if curr_mono == prev_mono:
                         if curr_strand == prev_strand:
+                            print("QUI11")
                             # We simply need to modify end of previous entry
                             pdata = bdata[-1]
                             pdata[1] = curr_end
                             prev_end = curr_end
                         else:
+                            print("QUI12")
                             # Add new line
                             bdata.append([curr_start, curr_end, curr_mono, curr_strand])
                             prev_start = curr_start
@@ -2168,6 +2212,7 @@ class PysageGUI(object):
                             prev_strand = curr_strand
                             prev_id = i
                     else:
+                        print("QUI13")
                         # Add new line
                         bdata.append([curr_start, curr_end, curr_mono, curr_strand])
                         prev_start = curr_start
@@ -2179,10 +2224,13 @@ class PysageGUI(object):
                     # There is a gap, fill with a mono
                     if curr_mono != "mono":
                         if prev_mono != "mono":
+                            print("QUI14")
                             bdata.append([prev_end, curr_start, "mono", "+"])
                         else:
+                            print("QUI15")
                             pdata = bdata[-1]
                             pdata[1] = curr_start
+                        print("QUI16")
                         bdata.append([curr_start, curr_end, curr_mono, curr_strand])
                         prev_start = curr_start
                         prev_end = curr_end
@@ -2190,6 +2238,7 @@ class PysageGUI(object):
                         prev_strand = curr_strand
                         prev_id = i
                     else:
+                        print("QUI17")
                         # TO BE CHECKED, IT IS MAYBE THE SOURCE OF THE BUG!!!
                         pdata = bdata[-1]
                         pdata[1] = curr_end
