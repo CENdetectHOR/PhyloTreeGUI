@@ -1743,9 +1743,11 @@ class PysageGUI(object):
                                 if self.hor_dists[chor] > self.hor_dists[ohor]:
                                     if oloc not in olocs_to_remove:
                                         olocs_to_remove.append(oloc)
+                                        #print("Removed", ohor, oloc[0], oloc[1])
                                 else:
                                     if cloc not in clocs_to_remove:
                                         clocs_to_remove.append(cloc)
+                                        #print("Removed", chor, cloc[0], cloc[1])
                             else:
                                 if cloc_start <= oloc_start and cloc_end >= oloc_end:
                                     #print("FULL1", chor, cloc[0], cloc[1], ohor, oloc[0], oloc[1])
@@ -1755,6 +1757,7 @@ class PysageGUI(object):
                                         # remove oloc (chor is more specific)
                                         if oloc not in olocs_to_remove:
                                             olocs_to_remove.append(oloc)
+                                            #print("Removed", ohor, oloc[0], oloc[1])
                                     else:
                                         # Modify locations
                                         # Copy current end of cloc
@@ -1778,6 +1781,7 @@ class PysageGUI(object):
                                             # remove cloc (chor is more specific)
                                             if cloc not in clocs_to_remove:
                                                 clocs_to_remove.append(cloc)
+                                                #print("Removed", chor, cloc[0], cloc[1])
                                         else:
                                             # Modify locations
                                             # Copy current end of cloc
@@ -2020,7 +2024,7 @@ class PysageGUI(object):
             curr_end = cdata[1]
             curr_mono = cdata[2]
             curr_strand = cdata[3]
-            """
+            #"""
             # Check if there is an overlap
             if curr_start >= prev_start and curr_end <= prev_end:
                 # Overlap -> Ignore current row
@@ -2069,10 +2073,11 @@ class PysageGUI(object):
                         prev_strand = old_strand
                     # Previous end is set to current start
                     pdata[1] = curr_start
-            """
-            if curr_start < prev_end:
+            #"""
+            elif curr_start < prev_end:
                 #print(i, curr_start, curr_end, curr_mono, curr_strand)
                 #print(prev_id, prev_start, prev_end, prev_mono, prev_strand)
+                #"""
                 if curr_mono == prev_mono:
                     # Some errors happened, we can fix it by modifying previous entry
                     pdata = bdata[-1]
@@ -2081,6 +2086,8 @@ class PysageGUI(object):
                 else:
                     # Weird row, continue
                     pass
+                #"""
+                #pass
             else:
                 # Check that current start is greater or equal than previous end
                 #assert curr_start >= prev_end, "Something strange happened when bed data have been sorted!!!"
@@ -2187,7 +2194,7 @@ class PysageGUI(object):
         if found:
             assert idx >= 0 and idx < len(self.clicked_colors)
             # Extract the color
-            ccolor = self.clicked_colors[idx]#self.hor_colors[idx % len(self.hor_colors)]
+            ccolor = self.clicked_colors[idx]
             # Convert the color string into RGB (values bounded in the range [0,1])
             red, green, blue = mcolors.to_rgb(ccolor)
             # Adjust red, green and blue in the range [0,255]
@@ -2197,7 +2204,7 @@ class PysageGUI(object):
             fp.write("%s\t%d\t%d\t%s\t0\t%s\t%d\t%d\t%d,%d,%d\n" % (self.seq_name, abs_start + cdata[0], abs_start + cdata[1], cdata[2], cdata[3], abs_start + cdata[0], abs_start + cdata[1], red, green, blue))
         else:
             fp.write("%s\t%d\t%d\t%s\t0\t%s\t%d\t%d\t128,128,128\n" % (self.seq_name, abs_start + cdata[0], abs_start + cdata[1], cdata[2], cdata[3], abs_start + cdata[0], abs_start + cdata[1]))
-        # Other rowsself.hor_colors
+        # Other rows
         row = 1
         while row < rows:
             # Get current data
@@ -2217,7 +2224,7 @@ class PysageGUI(object):
             if found:
                 assert idx >= 0 and idx < len(self.clicked_colors)
                 # Extract the color
-                ccolor = self.clicked_colors[idx]#self.hor_colors[idx % len(self.hor_colors)]
+                ccolor = self.clicked_colors[idx]
                 # Convert the color string into RGB (values bounded in the range [0,1])
                 red, green, blue = mcolors.to_rgb(ccolor)
                 # Adjust red, green and blue in the range [0,255]
