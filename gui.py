@@ -2133,7 +2133,9 @@ class PysageGUI(object):
                         prev_end = old_end
                         prev_mono = old_mono
                         prev_strand = old_strand
+                        #prev_id = i
                     else:
+                        pdata = bdata[-1]
                         old_start = pdata[0]
                         old_end = pdata[1]
                         old_mono = pdata[2]
@@ -2144,6 +2146,7 @@ class PysageGUI(object):
                         prev_end = curr_end
                         prev_mono = curr_mono
                         prev_strand = curr_strand
+                        #prev_id = i
                 else:
                     print("QUI6")
                     # Get previous entry
