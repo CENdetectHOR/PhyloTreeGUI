@@ -1768,7 +1768,6 @@ class PysageGUI(object):
                                 else:
                                     # Check whether oloc contains cloc
                                     if oloc_start <= cloc_start and oloc_end >= cloc_end:
-                                        #print("FULL2", chor, cloc[0], cloc[1], ohor, oloc[0], oloc[1])
                                         # oloc contains cloc
                                         # Check distance from root
                                         if self.hor_dists[ohor] > self.hor_dists[chor]:
@@ -1950,14 +1949,16 @@ class PysageGUI(object):
     ##########################################################################    
     # Get output
     def getOutput(self):
+        # Output of this method:
+        # - list of selected HORs;
+        # - monomers belonging to each family in the selected HORs;
+        # - bed file
+        # Generate BED file
         # Update counter for filenames
         self.filecnt += 1
-        # List of selected HORs, name association, BED file, phyloxml?
-        # Generate BED file
         monomer_string = []
         abs_start = int(self.chr_seq[0])
         abs_end = int(self.chr_seq[1])
-        # self.seq_name self.monomers (numero di HORS) self.locations (numero di HORS)
         bed_data = []
         for monos, locs in zip(self.monomers, self.locations):
             # Re-build monomers' string (i.e., HOR)
@@ -1976,15 +1977,22 @@ class PysageGUI(object):
                     print(loc[0], loc[1])
                     print(monos)
                     sys.exit()
+                # Flag to add a row
                 add = True
                 if prev_loc is not None:
+                    # Check if prev_end == curr_start and prev_strand == curr_strand
                     if prev_loc[1] == loc[0] and prev_loc[2] == loc[2]:
+                        # Previous and current locations are contiguous and the strand is the same -> simply modify previous end
                         pdata = bed_data[-1]
                         pdata[1] = loc[1]
+                        # Update previous location
                         prev_loc[1] = loc[1]
+                        # We do not need to add another row
                         add = False
                 if add:
+                    # Add a row
                     bed_data.append([loc[0], loc[1], mono_str, loc[2]])
+                    # Update previous location
                     prev_loc = copy.deepcopy(loc)
         # Sort data based on locations
         bed_data.sort()
@@ -2129,23 +2137,16 @@ class PysageGUI(object):
                         prev_strand = curr_strand
                 else:
                     # There is a gap, fill with a mono
-                    if curr_mono != "mono":
-                        if prev_mono != "mono":
-                            bdata.append([prev_end, curr_start, "mono", "+"])
-                        else:
-                            pdata = bdata[-1]
-                            pdata[1] = curr_start
-                        bdata.append([curr_start, curr_end, curr_mono, curr_strand])
-                        prev_start = curr_start
-                        prev_end = curr_end
-                        prev_mono = curr_mono
-                        prev_strand = curr_strand
+                    if prev_mono != "mono":
+                        bdata.append([prev_end, curr_start, "mono", "+"])
                     else:
-                        # Code should never enter here (we did not save locations of monomer regions)
                         pdata = bdata[-1]
-                        pdata[1] = curr_end
-                        prev_end = curr_end
-                        prev_mono = curr_mono
+                        pdata[1] = curr_start
+                    bdata.append([curr_start, curr_end, curr_mono, curr_strand])
+                    prev_start = curr_start
+                    prev_end = curr_end
+                    prev_mono = curr_mono
+                    prev_strand = curr_strand
             i += 1
         # Add completion of the sequence
         if curr_end != (abs_end - abs_start):
