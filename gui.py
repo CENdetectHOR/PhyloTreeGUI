@@ -2183,7 +2183,11 @@ class PysageGUI(object):
         # Build output BED filename (there is one file for each selection of the HORs)
         filename = os.path.splitext(self.filename)[0]
         outfile = filename + "_HORs_" + str(self.filecnt) + ".bed"
+        corrfile = filename + "_HORdescription_" + str(self.filecnt) + ".txt"
+        chrname = "C" + self.seq_name[3:] # We assume that all chromosomes start/contain the string "chr"
+        examined_hors = {}
         fp = open(os.path.join(self.folder, outfile), "w")
+        cfp = open(os.path.join(self.folder, corrfile), "w")
         # Write data
         rows = len(bdata)
         # First row
@@ -2194,6 +2198,7 @@ class PysageGUI(object):
         outfilename = os.path.splitext(outfile)[0]
         #fp.write("track name=\"ItemRGBDemo\" description=\"Item RGB demonstration\" itemRgb=\"On\"\n")
         fp.write("track name=\"" + outfilename + "\" description=\"" + outfilename + "\" itemRgb=\"On\"\n")
+        # The following two lines of code are maybe useless...
         if cdata[0] != 0:
             fp.write("%s\t%d\t%d\tmono\t0\t+\t%d\t%d\t128,128,128\n" % (self.seq_name, abs_start, abs_start + cdata[0], abs_start, abs_start + cdata[0]))
         # Get index of HOR in list in order to retrieve the corresponding color
@@ -2215,8 +2220,48 @@ class PysageGUI(object):
             # Adjust red, green and blue in the range [0,255]
             red = int(red * 255)
             green = int(green * 255)
-            blue = int(blue * 255)
-            fp.write("%s\t%d\t%d\t%s\t0\t%s\t%d\t%d\t%d,%d,%d\n" % (self.seq_name, abs_start + cdata[0], abs_start + cdata[1], cdata[2], cdata[3], abs_start + cdata[0], abs_start + cdata[1], red, green, blue))
+            blue = int(blue * 255)    
+            # Extract the number of Fs
+            chorlen = cdata[2].count('F')
+            found = False
+            if chorlen == 1:
+                # If the length of the HOR is 1, the name is CxFy, where x denotes the chromosome number and y represents the family name
+                horname = chrname + cdata[2]
+            else:
+                # Otherwise, the name is CxHz, with x indicating the chromosome number and z being the length of the HOR
+                horname = chrname + "H" + str(chorlen)
+                # Check whether current HOR has been examined (TO BE FIXED)
+                if horname in examined_hors.keys():
+                    # Already in the list
+                    # Extract the HORs that might have this name
+                    horvals = examined_hors[horname]
+                    for val in horvals:
+                        if cdata[2] == val:
+                            found = True
+                            break
+                    # Check if current HOR is already in this list
+                    if not found:
+                        # Not in the list, append it
+                        clen = len(horvals)
+                        horvals.append(cdata[2])
+                        examined_hors[horname] = horvals
+                        # Add ".val" to the name of the HOR
+                        horname += ("." + str(clen))
+                else:
+                    # None of the examined HORs has the horname
+                    examined_hors[horname] = [cdata[2]]
+            fp.write("%s\t%d\t%d\t%s\t0\t%s\t%d\t%d\t%d,%d,%d\n" % (self.seq_name, abs_start + cdata[0], abs_start + cdata[1], horname, cdata[3], abs_start + cdata[0], abs_start + cdata[1], red, green, blue))
+            # Write the correspondence (only if the HOR length is > 1)
+            if chorlen > 1 and not found:
+                horfamilies = cdata[2].split(',')
+                hordescr = ""
+                cnt = 0
+                for family in horfamilies:
+                    hordescr += (chrname + family)
+                    cnt += 1
+                    if cnt < len(horfamilies):
+                        hordescr += ","
+                cfp.write("%s\t%s\n" % (horname, hordescr))
         else:
             fp.write("%s\t%d\t%d\t%s\t0\t%s\t%d\t%d\t128,128,128\n" % (self.seq_name, abs_start + cdata[0], abs_start + cdata[1], cdata[2], cdata[3], abs_start + cdata[0], abs_start + cdata[1]))
         # Other rows
@@ -2246,7 +2291,47 @@ class PysageGUI(object):
                 red = int(red * 255)
                 green = int(green * 255)
                 blue = int(blue * 255)
-                fp.write("%s\t%d\t%d\t%s\t0\t%s\t%d\t%d\t%d,%d,%d\n" % (self.seq_name, abs_start + cdata[0], abs_start + cdata[1], cdata[2], cdata[3], abs_start + cdata[0], abs_start + cdata[1], red, green, blue))
+                # Extract the number of Fs
+                chorlen = cdata[2].count('F')
+                found = False
+                if chorlen == 1:
+                    # If the length of the HOR is 1, the name is CxFy, where x denotes the chromosome number and y represents the family name
+                    horname = chrname + cdata[2]
+                else:
+                    # Otherwise, the name is CxHz, with x indicating the chromosome number and z being the length of the HOR
+                    horname = chrname + "H" + str(chorlen)
+                    # Check whether current HOR has been examined (TO BE FIXED)
+                    if horname in examined_hors.keys():
+                        # Already in the list
+                        # Extract the HORs that might have this name
+                        horvals = examined_hors[horname]
+                        for val in horvals:
+                            if cdata[2] == val:
+                                found = True
+                                break
+                        # Check if current HOR is already in this list
+                        if not found:
+                            # Not in the list, append it
+                            clen = len(horvals)
+                            horvals.append(cdata[2])
+                            examined_hors[horname] = horvals
+                            # Add ".val" to the name of the HOR
+                            horname += ("." + str(clen))
+                    else:
+                        # None of the examined HORs has the horname
+                        examined_hors[horname] = [cdata[2]]
+                fp.write("%s\t%d\t%d\t%s\t0\t%s\t%d\t%d\t%d,%d,%d\n" % (self.seq_name, abs_start + cdata[0], abs_start + cdata[1], horname, cdata[3], abs_start + cdata[0], abs_start + cdata[1], red, green, blue))
+                # Write the correspondence (only if the HOR length is > 1)
+                if chorlen > 1 and not found:
+                    horfamilies = cdata[2].split(',')
+                    hordescr = ""
+                    cnt = 0
+                    for family in horfamilies:
+                        hordescr += (chrname + family)
+                        cnt += 1
+                        if cnt < len(horfamilies):
+                            hordescr += ","
+                    cfp.write("%s\t%s\n" % (horname, hordescr))
             else:
                 fp.write("%s\t%d\t%d\t%s\t0\t%s\t%d\t%d\t128,128,128\n" % (self.seq_name, abs_start + cdata[0], abs_start + cdata[1], cdata[2], cdata[3], abs_start + cdata[0], abs_start + cdata[1]))
             row += 1
@@ -2254,6 +2339,7 @@ class PysageGUI(object):
         if abs_start + cdata[1] != abs_end:
             fp.write("%s\t%d\t%d\tmono\t0\t+\t%d\t%d\t128,128,128\n" % (self.seq_name, abs_start + cdata[1], abs_end, abs_start + cdata[1], abs_end))
         fp.close()
+        cfp.close()
         
         """ 
         # Save CSV file containing associations
@@ -2283,6 +2369,8 @@ class PysageGUI(object):
             self.tree_canvas.get_tk_widget().destroy()
         if self.other_canvas is not None:
             self.other_canvas.get_tk_widget().destroy()
+        # Reset also file counter
+        self.filecnt = 0
         
     ##########################################################################    
     # Select the file to be loaded
