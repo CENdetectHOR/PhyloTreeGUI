@@ -2156,12 +2156,8 @@ class PysageGUI(object):
                 pdata = bdata[-1]
                 pdata[1] = (abs_end - abs_start)
                 
-        # Return the list of selected HORs
-        horfile = self.seq_name + "_selected_hor_list_" + str(self.filecnt) + ".txt"
-        fp = open(os.path.join(self.folder, horfile), "w")
-        for hor in self.hors:
-            fp.write("%s\n" % hor)
-        fp.close()       
+        # Extract chromosome name
+        chrname = "C" + self.seq_name[3:] # We assume that all chromosomes start/contain the string "chr"     
         
         # Save all the monomers associated to the selected HORs
         mono_to_save = []
@@ -2173,7 +2169,7 @@ class PysageGUI(object):
                         if clade.name == mono:
                             tmp_tree = PX.Phylogeny(root=clade, name=clade.name)
                             leaves = tmp_tree.get_terminals()
-                            monofile = self.seq_name + "_" + mono + ".txt"
+                            monofile = chrname + mono + ".txt"
                             fp = open(os.path.join(self.folder, monofile), "w")
                             for leaf in leaves:
                                 fp.write("%s\n" % leaf.name)
@@ -2181,11 +2177,10 @@ class PysageGUI(object):
                             mono_to_save.append(mono)
                
         # Build output BED filename (there is one file for each selection of the HORs)
-        filename = os.path.splitext(self.filename)[0]
-        outfile = filename + "_HORs_" + str(self.filecnt) + ".bed"
-        corrfile = filename + "_HORdescription_" + str(self.filecnt) + ".txt"
-        chrname = "C" + self.seq_name[3:] # We assume that all chromosomes start/contain the string "chr"
+        outfile = chrname + "_HORs_" + str(self.filecnt) + ".bed"
+        corrfile = chrname + "_HORdescription_" + str(self.filecnt) + ".txt"
         examined_hors = {}
+        hor_names = []
         fp = open(os.path.join(self.folder, outfile), "w")
         cfp = open(os.path.join(self.folder, corrfile), "w")
         # Write data
@@ -2227,6 +2222,8 @@ class PysageGUI(object):
             if chorlen == 1:
                 # If the length of the HOR is 1, the name is CxFy, where x denotes the chromosome number and y represents the family name
                 horname = chrname + cdata[2]
+                if horname not in hor_names:
+                    hor_names.append(horname)
             else:
                 # Otherwise, the name is CxHz, with x indicating the chromosome number and z being the length of the HOR
                 horname = chrname + "H" + str(chorlen)
@@ -2247,9 +2244,13 @@ class PysageGUI(object):
                         examined_hors[horname] = horvals
                         # Add ".val" to the name of the HOR
                         horname += ("." + str(clen))
+                        if horname not in hor_names:
+                            hor_names.append(horname)
                 else:
                     # None of the examined HORs has the horname
                     examined_hors[horname] = [cdata[2]]
+                    if horname not in hor_names:
+                        hor_names.append(horname)
             fp.write("%s\t%d\t%d\t%s\t0\t%s\t%d\t%d\t%d,%d,%d\n" % (self.seq_name, abs_start + cdata[0], abs_start + cdata[1], horname, cdata[3], abs_start + cdata[0], abs_start + cdata[1], red, green, blue))
             # Write the correspondence (only if the HOR length is > 1)
             if chorlen > 1 and not found:
@@ -2297,6 +2298,8 @@ class PysageGUI(object):
                 if chorlen == 1:
                     # If the length of the HOR is 1, the name is CxFy, where x denotes the chromosome number and y represents the family name
                     horname = chrname + cdata[2]
+                    if horname not in hor_names:
+                        hor_names.append(horname)
                 else:
                     # Otherwise, the name is CxHz, with x indicating the chromosome number and z being the length of the HOR
                     horname = chrname + "H" + str(chorlen)
@@ -2317,9 +2320,13 @@ class PysageGUI(object):
                             examined_hors[horname] = horvals
                             # Add ".val" to the name of the HOR
                             horname += ("." + str(clen))
+                            if horname not in hor_names:
+                                hor_names.append(horname)
                     else:
                         # None of the examined HORs has the horname
                         examined_hors[horname] = [cdata[2]]
+                        if horname not in hor_names:
+                            hor_names.append(horname)
                 fp.write("%s\t%d\t%d\t%s\t0\t%s\t%d\t%d\t%d,%d,%d\n" % (self.seq_name, abs_start + cdata[0], abs_start + cdata[1], horname, cdata[3], abs_start + cdata[0], abs_start + cdata[1], red, green, blue))
                 # Write the correspondence (only if the HOR length is > 1)
                 if chorlen > 1 and not found:
@@ -2340,6 +2347,15 @@ class PysageGUI(object):
             fp.write("%s\t%d\t%d\tmono\t0\t+\t%d\t%d\t128,128,128\n" % (self.seq_name, abs_start + cdata[1], abs_end, abs_start + cdata[1], abs_end))
         fp.close()
         cfp.close()
+                
+        # Sort HOR names alphabetically
+        hor_names.sort()
+        # Return the list of selected HORs
+        horfile = chrname + "_selected_hor_list_" + str(self.filecnt) + ".txt"
+        fp = open(os.path.join(self.folder, horfile), "w")
+        for hor in hor_names:#self.hors:
+            fp.write("%s\n" % hor)
+        fp.close()  
         
         """ 
         # Save CSV file containing associations
