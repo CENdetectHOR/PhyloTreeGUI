@@ -2351,7 +2351,7 @@ class PysageGUI(object):
         # Sort HOR names alphabetically
         hor_names.sort()
         # Return the list of selected HORs
-        horfile = chrname + "_selected_hor_list_" + str(self.filecnt) + ".txt"
+        horfile = chrname + "_selectedHORs_" + str(self.filecnt) + ".txt"
         fp = open(os.path.join(self.folder, horfile), "w")
         for hor in hor_names:#self.hors:
             fp.write("%s\n" % hor)
