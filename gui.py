@@ -860,8 +860,8 @@ class PysageGUI(object):
         else:
             if name:
                 axes.set_title(name)
-        axes.set_xlabel("branch length")
-        axes.set_ylabel("taxa")
+        axes.set_xlabel("evolutionary distance")#branch length")
+        #axes.set_ylabel("taxa")
         # Add margins around the tree to prevent overlapping the axes
         xmax = max(x_posns.values())
         axes.set_xlim(-0.05 * xmax, 1.25 * xmax)
@@ -1222,8 +1222,8 @@ class PysageGUI(object):
         else:
             if name:
                 axes.set_title(name)
-        axes.set_xlabel("branch length")
-        axes.set_ylabel("taxa")
+        axes.set_xlabel("evolutionary distance")#branch length")
+        #axes.set_ylabel("taxa")
         # Add margins around the tree to prevent overlapping the axes
         xmax = max(x_posns.values())
         axes.set_xlim(-0.05 * xmax, 1.25 * xmax)
@@ -1602,8 +1602,8 @@ class PysageGUI(object):
         else:
             if name:
                 axes.set_title(name)
-        axes.set_xlabel("branch length")
-        axes.set_ylabel("taxa")
+        axes.set_xlabel("evolutionary distance")#branch length")
+        #axes.set_ylabel("taxa")
         # Add margins around the tree to prevent overlapping the axes
         xmax = max(x_posns.values())
         axes.set_xlim(-0.05 * xmax, 1.25 * xmax)
@@ -2369,7 +2369,7 @@ class PysageGUI(object):
         Phylo.write(new_trees, outfile, format='phyloxml')
         """
         
-    ##########################################################################    
+    ##########################################################################    <
     # Reset
     def reset(self):
         # Set color of nodes in the HOR tree to black
