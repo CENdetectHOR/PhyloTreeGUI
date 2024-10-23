@@ -868,6 +868,8 @@ class PysageGUI(object):
         # Also invert the y-axis (origin at the top)
         # Add a small vertical margin, but avoid including 0 and N+1 on the y axis
         axes.set_ylim(max(y_posns.values()) + 0.8, 0.2)
+        axes.set_xticks([])
+        axes.set_yticks([])
 
         # Parse and process key word arguments as pyplot options
         for key, value in kwargs.items():
