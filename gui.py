@@ -860,7 +860,7 @@ class PysageGUI(object):
         else:
             if name:
                 axes.set_title(name)
-        axes.set_xlabel("evolutionary distance")#branch length")
+        #axes.set_xlabel("evolutionary distance")#branch length")
         #axes.set_ylabel("taxa")
         # Add margins around the tree to prevent overlapping the axes
         xmax = max(x_posns.values())
