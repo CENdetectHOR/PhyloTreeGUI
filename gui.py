@@ -2350,7 +2350,7 @@ class PysageGUI(object):
             fp.write("%s\t%d\t%d\tmono\t0\t+\t%d\t%d\t128,128,128\n" % (self.seq_name, abs_start + cdata[1], abs_end, abs_start + cdata[1], abs_end))
         fp.close()
         cfp.close()
-                
+        """        
         # Sort HOR names alphabetically
         hor_names.sort()
         # Return the list of selected HORs
@@ -2359,7 +2359,7 @@ class PysageGUI(object):
         for hor in hor_names:#self.hors:
             fp.write("%s\n" % hor)
         fp.close()  
-        
+        """
         """ 
         # Save CSV file containing associations
         df = pd.DataFrame(data=self.data)
