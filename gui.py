@@ -1896,7 +1896,7 @@ class PysageGUI(object):
         ax_seq.set_xticks([0, self.seq_len])
         ax_seq.set_xticklabels(self.chr_seq)
         ax_seq.add_patch(patches.Rectangle((0, 0), self.seq_len, 1, facecolor='grey'))
-        ax_seq.text(-1500000.5, 0.5, self.seq_name, horizontalalignment='center', verticalalignment='center', fontsize='small') # Maybe the x-coordinate of this text can be changed...
+        #ax_seq.text(-1500000.5, 0.5, self.seq_name, horizontalalignment='center', verticalalignment='center', fontsize='small') # Maybe the x-coordinate of this text can be changed...
         plts = []
         for j in range(nlocs):
             # Compute the ratio between actual length and plot
