@@ -1857,7 +1857,7 @@ class PysageGUI(object):
         # the figure that will contain the plot 
         other_fig = Figure(figsize = (4, 4), dpi = 100, constrained_layout=True)
         H = 1.0
-        H_seq = 0.25
+        H_seq = 0.2
         H_mono = (H - H_seq) / nmonos 
         H_ratios = [H_mono for _ in range(nmonos)]
         H_ratios.append(H_seq)
