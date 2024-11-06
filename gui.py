@@ -1862,7 +1862,7 @@ class PysageGUI(object):
         H_ratios = [H_mono for _ in range(nmonos)]
         H_ratios.append(H_seq)
         #H = 1.0 / (nmonos + 1)
-        gs = other_fig.add_gridspec(nmonos + 1, 1, height_ratios=H_ratios, hspace=0.25 * (1 / (nmonos + 1)))#0.1)
+        gs = other_fig.add_gridspec(nmonos + 1, 1, height_ratios=H_ratios, hspace=0.1 * (1 / (nmonos + 1)))#0.1)
         
         # Monomers in HORs
         for j in range(nmonos):
