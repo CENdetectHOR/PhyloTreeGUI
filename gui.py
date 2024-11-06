@@ -1876,11 +1876,11 @@ class PysageGUI(object):
                 rect = patches.Rectangle((i, 0), 1, 1, facecolor=cmono_colors[i].to_hex(), edgecolor='black')
                 ax_hor.add_patch(rect)
                 ax_hor.text(i, 1.25, str(cmono[i]), fontsize='x-small')
-            hor_circ = patches.Circle((-0.5, 0.5), 0.25, color=self.clicked_colors[j], clip_on=False)
+            hor_circ = patches.Circle((-1.25, 0.5), 0.25, color=self.clicked_colors[j], clip_on=False)
             #hor_rect = patches.Rectangle((-1.5, 0.25), 1, 0.5, color=self.clicked_colors[j], clip_on=False)
             ax_hor.add_patch(hor_circ)#rect)
             N = len(self.hors[j])
-            ax_hor.text(-2.0, 0.5, str(hor_size), horizontalalignment='center', verticalalignment='center', fontsize='large')
+            ax_hor.text(-2.5, 0.5, str(hor_size), horizontalalignment='center', verticalalignment='center', fontsize='large')
             #ax_hor.text(-1.5 + 0.1 * N / 2, 1, self.hors[j], fontsize='xx-small')
            
         # Locations of HORs in sequence
@@ -1896,7 +1896,7 @@ class PysageGUI(object):
         ax_seq.set_xticks([0, self.seq_len])
         ax_seq.set_xticklabels(self.chr_seq)
         ax_seq.add_patch(patches.Rectangle((0, 0), self.seq_len, 1, facecolor='grey'))
-        ax_seq.text(-500000.5, 0.5, self.seq_name, fontsize='x-small') # Maybe the x-coordinate of this text can be changed...
+        ax_seq.text(-1500000.5, 0.5, self.seq_name, horizontalalignment='center', verticalalignment='center', fontsize='small') # Maybe the x-coordinate of this text can be changed...
         plts = []
         for j in range(nlocs):
             # Compute the ratio between actual length and plot
