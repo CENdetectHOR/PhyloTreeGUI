@@ -1880,7 +1880,7 @@ class PysageGUI(object):
             #hor_rect = patches.Rectangle((-1.5, 0.25), 1, 0.5, color=self.clicked_colors[j], clip_on=False)
             ax_hor.add_patch(hor_circ)#rect)
             N = len(self.hors[j])
-            ax_hor.text(-2.0, 0.5, str(hor_size), horizontalalignment='center', verticalalignment='center', fontsize='small')
+            ax_hor.text(-2.0, 0.5, str(hor_size), horizontalalignment='center', verticalalignment='center', fontsize='large')
             #ax_hor.text(-1.5 + 0.1 * N / 2, 1, self.hors[j], fontsize='xx-small')
            
         # Locations of HORs in sequence
