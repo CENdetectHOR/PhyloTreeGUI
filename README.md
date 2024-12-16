@@ -1,6 +1,8 @@
 # PhyloTreeGUI
 
-A tool for visualizing interactive phylogenetic trees. PhyloTreeGUI takes a phyloXML file as input and produces the following outputs:
+PhyloTreeGUI is a tool for visualizing interactive phylogenetic trees.
+
+PhyloTreeGUI takes a phyloXML file as input and produces the following outputs:
 
 1) a BED file containing the annotation of the selected HORs (Higher-Order Repeats) in the centromere sequence;
 2) a file describing the composition of the selected HORs;
