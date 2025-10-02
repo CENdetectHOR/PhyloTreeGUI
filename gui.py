@@ -1880,7 +1880,7 @@ class PysageGUI(object):
             for i in range(len(cmono)):
                 rect = patches.Rectangle((i, 0), 1, 1, facecolor=cmono_colors[i].to_hex(), edgecolor='black')
                 ax_hor.add_patch(rect)
-                ax_hor.text(i, 1.25, str(cmono[i]), fontsize='x-small')
+                #ax_hor.text(i, 1.25, str(cmono[i]), fontsize='x-small')
             hor_circ = patches.Circle((-1.25, 0.5), 0.25, color=self.clicked_colors[j], clip_on=False)
             #hor_rect = patches.Rectangle((-1.5, 0.25), 1, 0.5, color=self.clicked_colors[j], clip_on=False)
             ax_hor.add_patch(hor_circ)#rect)
@@ -2037,8 +2037,62 @@ class PysageGUI(object):
             curr_end = cdata[1]
             curr_mono = cdata[2]
             curr_strand = cdata[3]
-            # Check if there is an overlap
-            if curr_start >= prev_start and curr_end <= prev_end:
+            # Build names (keys for dict of distances)
+            prev_mono_str = str(prev_mono.count('F')) + prev_mono.replace(',','')
+            curr_mono_str = str(curr_mono.count('F')) + curr_mono.replace(',','')
+            # Get distances and compare them
+            prev_dist = self.hor_dists[prev_mono_str]
+            curr_dist = self.hor_dists[curr_mono_str]
+            if curr_start > prev_start:
+                # Check gaps
+                if curr_start > prev_end:
+                    # Gap -> fill with mono
+                    bdata.append([prev_end, curr_start, "mono", "+"])
+                    # Insert new locations
+                    bdata.append([curr_start, curr_end, curr_mono, curr_strand])
+                    # Update previous data
+                    prev_start = curr_start
+                    prev_end = curr_end
+                    prev_mono = curr_mono
+                    prev_strand = curr_strand
+                elif curr_start == prev_end:
+                    if curr_mono == prev_mono:
+                        # Contiguous locations for the same monomer -> update previous entry
+                        pdata = bdata[-1]
+                        pdata[1] = curr_end
+                        # Update previous end
+                        prev_end = curr_end
+                    else:
+                        # Simply add new location
+                        bdata.append([curr_start, curr_end, curr_mono, curr_strand])
+                        # Update previous data
+                        prev_start = curr_start
+                        prev_end = curr_end
+                        prev_mono = curr_mono
+                        prev_strand = curr_strand
+                else:
+                    # Build names (keys for dict of distances)
+                    prev_mono_str = str(prev_mono.count('F')) + prev_mono.replace(',','')
+                    curr_mono_str = str(curr_mono.count('F')) + curr_mono.replace(',','')
+                    # Get distances and compare them
+                    prev_dist = self.hor_dists[prev_mono_str]
+                    curr_dist = self.hor_dists[curr_mono_str]
+                    if curr_dist > prev_dist:
+                        pdata = bdata[-1]
+                        old_end = pdata[1]
+                        old_mono = pdata[2]
+                        old_strand = pdata[3]
+                        pdata[1] = curr_start
+                        # Add new locations
+                        bdata.append([curr_start, curr_end, curr_mono, curr_strand])
+                        bdata.append([curr_end, old_end, old_mono, old_strand])
+                        # Update previous data
+                        prev_start = curr_end
+                        prev_end = old_end
+                        prev_mono = old_mono
+                        prev_strand = old_strand
+            elif curr_start >= prev_start and curr_end <= prev_end:
+                # Overlap
                 # Check if the overlap is perfect (same start and end locations)
                 if curr_start == prev_start and curr_end == prev_end:
                     # Two HORs have same start and end locations
@@ -2056,6 +2110,7 @@ class PysageGUI(object):
                     else:
                         # Check if current HOR is farther than the previous
                         if curr_dist > prev_dist:
+                            print("QUI9")
                             # Current HOR is at a higher distance -> update bed data
                             pdata = bdata[-1]
                             pdata[2] = curr_mono
@@ -2063,98 +2118,179 @@ class PysageGUI(object):
                             # Update information about monomer currently stored
                             prev_mono = curr_mono
                             prev_strand = curr_strand
-                elif curr_start == prev_start or curr_end == prev_end:
-                    if curr_start == prev_start:
+                elif curr_start > prev_start and curr_end == prev_end:
+                    # Build names (keys for dict of distances)
+                    prev_mono_str = str(prev_mono.count('F')) + prev_mono.replace(',','')
+                    curr_mono_str = str(curr_mono.count('F')) + curr_mono.replace(',','')
+                    # Get distances and compare them
+                    prev_dist = self.hor_dists[prev_mono_str]
+                    curr_dist = self.hor_dists[curr_mono_str]
+                    if curr_dist > prev_dist:
+                        # Update old data (previous end becomes current start)
                         pdata = bdata[-1]
-                        old_start = pdata[0]
+                        pdata[1] = curr_start
+                        # Add new locations
+                        bdata.append([curr_start, curr_end, curr_mono, curr_strand])
+                        # Update previous data
+                        prev_start = curr_start
+                        prev_end = curr_end
+                        prev_mono = curr_mono
+                        prev_strand = curr_strand
+                    elif curr_dist == prev_dist:
+                        # Add new locations
+                        bdata.append([curr_start, curr_end, curr_mono, curr_strand])
+                        # Update previous data
+                        prev_start = curr_start
+                        prev_end = curr_end
+                        prev_mono = curr_mono
+                        prev_strand = curr_strand
+                elif curr_start > prev_start and curr_end < prev_end:
+                    # Build names (keys for dict of distances)
+                    prev_mono_str = str(prev_mono.count('F')) + prev_mono.replace(',','')
+                    curr_mono_str = str(curr_mono.count('F')) + curr_mono.replace(',','')
+                    # Get distances and compare them
+                    prev_dist = self.hor_dists[prev_mono_str]
+                    curr_dist = self.hor_dists[curr_mono_str]
+                    if curr_dist > prev_dist:
+                        # Update old data (previous end becomes current start)
+                        pdata = bdata[-1]
+                        # Store previous monomer data
+                        old_end = pdata[1]
+                        old_mono = pdata[2]
+                        old_strand = pdata[3]
+                        pdata[1] = curr_start
+                        # Add new locations
+                        bdata.append([curr_start, curr_end, curr_mono, curr_strand])
+                        bdata.append([curr_end, old_end, old_mono, old_strand])
+                        # Update previous data
+                        prev_start = curr_end
+                        prev_end = old_end
+                        prev_mono = old_mono
+                        prev_strand = old_strand
+                elif curr_start == prev_start and curr_end < prev_end:
+                    # Build names (keys for dict of distances)
+                    prev_mono_str = str(prev_mono.count('F')) + prev_mono.replace(',','')
+                    curr_mono_str = str(curr_mono.count('F')) + curr_mono.replace(',','')
+                    # Get distances and compare them
+                    prev_dist = self.hor_dists[prev_mono_str]
+                    curr_dist = self.hor_dists[curr_mono_str]
+                    if curr_dist >= prev_dist:
+                        # Update old data (previous end becomes current start)
+                        pdata = bdata[-1]
+                        # Store previous monomer data
                         old_end = pdata[1]
                         old_mono = pdata[2]
                         old_strand = pdata[3]
                         pdata[1] = curr_end
                         pdata[2] = curr_mono
                         pdata[3] = curr_strand
+                        # Add new locations
                         bdata.append([curr_end, old_end, old_mono, old_strand])
+                        # Update previous data
                         prev_start = curr_end
                         prev_end = old_end
                         prev_mono = old_mono
-                        prev_strand = old_strand
-                    else:
+                        prev_strand = old_strand                
+            elif curr_start == prev_start and curr_end > prev_end:
+                # Build names (keys for dict of distances)
+                prev_mono_str = str(prev_mono.count('F')) + prev_mono.replace(',','')
+                curr_mono_str = str(curr_mono.count('F')) + curr_mono.replace(',','')
+                # Get distances and compare them
+                prev_dist = self.hor_dists[prev_mono_str]
+                curr_dist = self.hor_dists[curr_mono_str]
+                if curr_dist > prev_dist:
+                    # Update previous entry
+                    pdata = bdata[-1]
+                    pdata[1] = curr_end
+                    pdata[2] = curr_mono
+                    pdata[3] = curr_strand
+                    # Update previous data
+                    prev_end = curr_end
+                    prev_mono = curr_mono
+                    prev_strand = curr_strand
+                elif prev_dist > curr_dist:
+                    # Add new locations
+                    bdata.append([prev_end, curr_end, curr_mono, curr_strand])
+                    # Update previous data
+                    prev_start = prev_end
+                    prev_end = curr_end
+                    prev_mono = curr_mono
+                    prev_strand = curr_strand
+                else:
+                    # Add new locations
+                    bdata.append([curr_start, curr_end, curr_mono, curr_strand])
+                    # Update previous data
+                    prev_start = curr_start
+                    prev_end = curr_end
+                    prev_mono = curr_mono
+                    prev_strand = curr_strand
+            elif curr_start <= prev_start and curr_end <= prev_end:
+                if curr_start < prev_start and curr_end == prev_end:
+                    # Build names (keys for dict of distances)
+                    prev_mono_str = str(prev_mono.count('F')) + prev_mono.replace(',','')
+                    curr_mono_str = str(curr_mono.count('F')) + curr_mono.replace(',','')
+                    # Get distances and compare them
+                    prev_dist = self.hor_dists[prev_mono_str]
+                    curr_dist = self.hor_dists[curr_mono_str]
+                    if curr_dist > prev_dist:
+                        # Update previous entry
                         pdata = bdata[-1]
                         old_start = pdata[0]
                         old_end = pdata[1]
                         old_mono = pdata[2]
                         old_strand = pdata[3]
-                        pdata[1] = curr_start
-                        bdata.append([curr_start, curr_end, curr_mono, curr_strand])
-                        prev_start = curr_start
-                        prev_end = curr_end
-                        prev_mono = curr_mono
-                        prev_strand = curr_strand
-                else:
-                    # Get previous entry
-                    pdata = bdata[-1]
-                    old_start = pdata[0]
-                    old_end = pdata[1]
-                    old_mono = pdata[2]
-                    old_strand = pdata[3]
-                    # Add new entry
-                    bdata.append([curr_start, curr_end, curr_mono, curr_strand])
-                    prev_start = curr_start
-                    prev_end = curr_end
-                    prev_mono = curr_mono
-                    prev_strand = curr_strand
-                    # Add remaining part of previous HOR
-                    if old_end > curr_end:
-                        bdata.append([curr_end, old_end, old_mono, old_strand])
-                        prev_start = curr_end
+                        pdata[0] = curr_start
+                        pdata[2] = curr_mono
+                        pdata[3] = curr_strand
+                        # Add locations
+                        bdata.append([old_start, old_end, old_mono, old_strand])
+                        # Update previous data
+                        prev_start = old_start
                         prev_end = old_end
                         prev_mono = old_mono
                         prev_strand = old_strand
-                    # Previous end is set to current start
-                    pdata[1] = curr_start
-            elif curr_start < prev_end:
-                if curr_mono == prev_mono:
-                    # Some errors happened, we can fix it by modifying previous entry
-                    pdata = bdata[-1]
-                    pdata[1] = curr_end
-                    prev_end = curr_end
                 else:
-                    # Weird row, continue (code should never enter here)
-                    pass
-            else:
-                # Check that current start is greater or equal than previous end
-                if curr_start == prev_end:
-                    if curr_mono == prev_mono:
-                        if curr_strand == prev_strand:
-                            # We simply need to modify end of previous entry
-                            pdata = bdata[-1]
-                            pdata[1] = curr_end
-                            prev_end = curr_end
-                        else:
-                            # Add new line
-                            bdata.append([curr_start, curr_end, curr_mono, curr_strand])
-                            prev_start = curr_start
-                            prev_end = curr_end
-                            prev_strand = curr_strand
-                    else:
-                        # Add new line
-                        bdata.append([curr_start, curr_end, curr_mono, curr_strand])
-                        prev_start = curr_start
-                        prev_end = curr_end
-                        prev_mono = curr_mono
-                        prev_strand = curr_strand
-                else:
-                    # There is a gap, fill with a mono
-                    if prev_mono != "mono":
-                        bdata.append([prev_end, curr_start, "mono", "+"])
-                    else:
-                        pdata = bdata[-1]
-                        pdata[1] = curr_start
-                    bdata.append([curr_start, curr_end, curr_mono, curr_strand])
-                    prev_start = curr_start
-                    prev_end = curr_end
-                    prev_mono = curr_mono
-                    prev_strand = curr_strand
+                    clen = len(bdata)
+                    j = clen - 1
+                    found = False
+                    while j >= 0 and not found:
+                        pdata = bdata[j]
+                        old_start = pdata[0]
+                        old_end = pdata[1]
+                        old_mono = pdata[2]
+                        old_strand = pdata[3]
+                        if curr_start >= old_start and curr_end <= old_end:
+                            # Build names (keys for dict of distances)
+                            old_mono_str = str(old_mono.count('F')) + old_mono.replace(',','')
+                            curr_mono_str = str(curr_mono.count('F')) + curr_mono.replace(',','')
+                            # Get distances and compare them
+                            old_dist = self.hor_dists[old_mono_str]
+                            curr_dist = self.hor_dists[curr_mono_str]
+                            if curr_dist > old_dist:
+                                found = True
+                                if curr_start == old_start and curr_end == old_end:
+                                    # Perfect overlap -> replace
+                                    pdata[2] = curr_mono
+                                    pdata[3] = curr_strand
+                                else:
+                                    if curr_start == old_start:
+                                        pdata[1] = curr_end
+                                        pdata[2] = curr_mono
+                                        pdata[3] = curr_strand
+                                        # Append new entry
+                                        bdata.insert(j + 1, [curr_end, old_end, old_mono, old_strand])
+                                    elif curr_end == old_end:
+                                        pdata[1] = curr_start
+                                        # Append new entry
+                                        bdata.insert(j + 1, [curr_start, curr_end, curr_mono, curr_strand])
+                                    else:
+                                        pdata[1] = curr_start
+                                        # Append new entry
+                                        bdata.insert(j + 1, [curr_start, curr_end, curr_mono, curr_strand])
+                                        bdata.insert(j + 2, [curr_end, old_end, old_mono, old_strand])
+                        j -= 1
+                    if not found:
+                        pass
             i += 1
         # Add completion of the sequence
         if curr_end != (abs_end - abs_start):
@@ -2163,6 +2299,26 @@ class PysageGUI(object):
             else:
                 pdata = bdata[-1]
                 pdata[1] = (abs_end - abs_start)
+                
+        # Post-evaluation check on contiguous locations for the same HOR
+        i = 0
+        while i < len(bdata) - 1:
+            curr_data = bdata[i]
+            next_data = bdata[i + 1]
+            curr_mono = curr_data[2]
+            next_mono = next_data[2]
+            if curr_mono == next_mono:
+                curr_end = curr_data[1]
+                next_start = next_data[0]
+                next_end = next_data[1]
+                if curr_end == next_start:
+                    # Contiguous -> merge rows
+                    curr_data[1] = next_end
+                    del bdata[i + 1]
+                else:
+                    i += 1
+            else:
+                i += 1
                 
         # Extract chromosome name
         chrname = "C" + self.seq_name[3:] # We assume that all chromosomes start/contain the string "chr"     
@@ -2197,6 +2353,8 @@ class PysageGUI(object):
         cdata = bdata[0]
         cols = len(cdata)
         assert cols == 4, "Inconsistent data length {%d}!".format(cols)
+        # Update start (-1)
+        abs_start -= 1 # 0-based
         # Header
         outfilename = os.path.splitext(outfile)[0]
         #fp.write("track name=\"ItemRGBDemo\" description=\"Item RGB demonstration\" itemRgb=\"On\"\n")
@@ -2240,10 +2398,12 @@ class PysageGUI(object):
                     # Already in the list
                     # Extract the HORs that might have this name
                     horvals = examined_hors[horname]
-                    for val in horvals:
+                    idx = -1
+                    for elem, val in enumerate(horvals):
                         if cdata[2] == val:
                             found = True
-                            break
+                            idx = elem
+                        break
                     # Check if current HOR is already in this list
                     if not found:
                         # Not in the list, append it
@@ -2254,6 +2414,12 @@ class PysageGUI(object):
                         horname += ("." + str(clen))
                         if horname not in hor_names:
                             hor_names.append(horname)
+                    else:
+                        if idx > 0:
+                            # Add the index to the HOR name
+                            horname += ("." + str(elem))
+                            if horname not in hor_names:
+                                hor_names.append(horname)
                 else:
                     # None of the examined HORs has the horname
                     examined_hors[horname] = [cdata[2]]
@@ -2302,7 +2468,6 @@ class PysageGUI(object):
                 blue = int(blue * 255)
                 # Extract the number of Fs
                 chorlen = cdata[2].count('F')
-                found = False
                 if chorlen == 1:
                     # If the length of the HOR is 1, the name is CxFy, where x denotes the chromosome number and y represents the family name
                     horname = chrname + cdata[2]
@@ -2316,9 +2481,12 @@ class PysageGUI(object):
                         # Already in the list
                         # Extract the HORs that might have this name
                         horvals = examined_hors[horname]
-                        for val in horvals:
+                        found = False
+                        idx = -1
+                        for elem, val in enumerate(horvals):
                             if cdata[2] == val:
                                 found = True
+                                idx = elem
                                 break
                         # Check if current HOR is already in this list
                         if not found:
@@ -2330,6 +2498,12 @@ class PysageGUI(object):
                             horname += ("." + str(clen))
                             if horname not in hor_names:
                                 hor_names.append(horname)
+                        else:
+                            if idx > 0:
+                                # Add the index to the HOR name
+                                horname += ("." + str(elem))
+                                if horname not in hor_names:
+                                    hor_names.append(horname)
                     else:
                         # None of the examined HORs has the horname
                         examined_hors[horname] = [cdata[2]]
