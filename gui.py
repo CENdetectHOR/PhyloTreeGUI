@@ -166,7 +166,6 @@ class PysageGUI(object):
                 dg = (g - gg) * 255.0
                 db = (b - bb) * 255.0
                 dc = math.sqrt(((2.0 + rmean / 256.0) * dr * dr) + (4.0 * dg * dg) + ((2.0 + (255.0 - rmean) / 256.0) * db * db))
-                #print(elem, col, dc)
                 if abs(r - rr) <= 0.125 and abs(g - gg) <= 0.125 and abs(b - bb) <= 0.125:#dc <= 50.0:
                     found = True
                     break
@@ -199,7 +198,6 @@ class PysageGUI(object):
                 dg = (g - gg) * 255.0
                 db = (b - bb) * 255.0
                 dc = math.sqrt(((2.0 + rmean / 256.0) * dr * dr) + (4.0 * dg * dg) + ((2.0 + (255.0 - rmean) / 256.0) * db * db))
-                #print(elem, col, dc)
                 if abs(r - rr) <= 0.125 and abs(g - gg) <= 0.125 and abs(b - bb) <= 0.125:#dc <= 50.0:
                     found = True
                     break
@@ -2110,7 +2108,6 @@ class PysageGUI(object):
                     else:
                         # Check if current HOR is farther than the previous
                         if curr_dist > prev_dist:
-                            print("QUI9")
                             # Current HOR is at a higher distance -> update bed data
                             pdata = bdata[-1]
                             pdata[2] = curr_mono
@@ -2320,6 +2317,18 @@ class PysageGUI(object):
             else:
                 i += 1
                 
+        # Post-evaluation check on same start and end locations (although this case should have already been managed before!)
+        i = 0
+        while i < len(bdata):
+            curr_data = bdata[i]
+            curr_start = curr_data[0]
+            curr_end = curr_data[1]
+            if curr_start == curr_end:
+                # Start = end -> delete row
+                del bdata[i]
+            else:
+                i += 1
+                
         # Extract chromosome name
         chrname = "C" + self.seq_name[3:] # We assume that all chromosomes start/contain the string "chr"     
         
@@ -2340,9 +2349,43 @@ class PysageGUI(object):
                             fp.close()
                             mono_to_save.append(mono)
                
+        # Get the bed files in the directory
+        existing_bed_files = [f for f in os.listdir(self.folder) if f.endswith("bed")]
+        existing_bed_files.sort(key=natural_keys)
+        # Get the description files in the directory
+        existing_descr_files = [f for f in os.listdir(self.folder) if "description" in f]
+        existing_descr_files.sort(key=natural_keys)
         # Build output BED filename (there is one file for each selection of the HORs)
         outfile = chrname + "_HORs_" + str(self.filecnt) + ".bed"
         corrfile = chrname + "_HORdescription_" + str(self.filecnt) + ".txt"
+        # Copy of the file counter
+        cfilecnt = self.filecnt
+        # If the list of bed files in the directory is empty, we do not need to check
+        if len(existing_bed_files) > 0:
+            # Check if the name exists or not
+            ok = False
+            while not ok:
+                if outfile not in existing_bed_files:
+                    # The name does not exist -> check finished
+                    ok = True
+                else:
+                    # The name has already been used -> update counter and repeat check with new name
+                    cfilecnt += 1
+                    outfile = chrname + "_HORs_" + str(cfilecnt) + ".bed"
+        # Copy of the file counter
+        cfilecnt = self.filecnt
+        # If the list of descr files in the directory is empty, we do not need to check
+        if len(existing_descr_files) > 0:
+            # Check if the name exists or not
+            ok = False
+            while not ok:
+                if corrfile not in existing_descr_files:
+                    # The name does not exist -> check finished
+                    ok = True
+                else:
+                    # The name has already been used -> update counter and repeat check with new name
+                    cfilecnt += 1
+                    corrfile = chrname + "_HORdescription_" + str(cfilecnt) + ".txt"
         examined_hors = {}
         hor_names = []
         fp = open(os.path.join(self.folder, outfile), "w")
@@ -2384,7 +2427,7 @@ class PysageGUI(object):
             blue = int(blue * 255)    
             # Extract the number of Fs
             chorlen = cdata[2].count('F')
-            found = False
+            exist = False
             if chorlen == 1:
                 # If the length of the HOR is 1, the name is CxFy, where x denotes the chromosome number and y represents the family name
                 horname = chrname + cdata[2]
@@ -2401,11 +2444,11 @@ class PysageGUI(object):
                     idx = -1
                     for elem, val in enumerate(horvals):
                         if cdata[2] == val:
-                            found = True
+                            exist = True
                             idx = elem
-                        break
+                            break
                     # Check if current HOR is already in this list
-                    if not found:
+                    if not exist:
                         # Not in the list, append it
                         clen = len(horvals)
                         horvals.append(cdata[2])
@@ -2414,12 +2457,6 @@ class PysageGUI(object):
                         horname += ("." + str(clen))
                         if horname not in hor_names:
                             hor_names.append(horname)
-                    else:
-                        if idx > 0:
-                            # Add the index to the HOR name
-                            horname += ("." + str(elem))
-                            if horname not in hor_names:
-                                hor_names.append(horname)
                 else:
                     # None of the examined HORs has the horname
                     examined_hors[horname] = [cdata[2]]
@@ -2427,7 +2464,7 @@ class PysageGUI(object):
                         hor_names.append(horname)
             fp.write("%s\t%d\t%d\t%s\t0\t%s\t%d\t%d\t%d,%d,%d\n" % (self.seq_name, abs_start + cdata[0], abs_start + cdata[1], horname, cdata[3], abs_start + cdata[0], abs_start + cdata[1], red, green, blue))
             # Write the correspondence (only if the HOR length is > 1)
-            if chorlen > 1 and not found:
+            if chorlen > 1 and not exist:
                 horfamilies = cdata[2].split(',')
                 hordescr = ""
                 cnt = 0
@@ -2458,6 +2495,7 @@ class PysageGUI(object):
                 cnt += 1
             if found:
                 assert idx >= 0 and idx < len(self.clicked_colors)
+                exist = False
                 # Extract the color
                 ccolor = self.clicked_colors[idx]
                 # Convert the color string into RGB (values bounded in the range [0,1])
@@ -2481,15 +2519,14 @@ class PysageGUI(object):
                         # Already in the list
                         # Extract the HORs that might have this name
                         horvals = examined_hors[horname]
-                        found = False
                         idx = -1
                         for elem, val in enumerate(horvals):
                             if cdata[2] == val:
-                                found = True
+                                exist = True
                                 idx = elem
                                 break
                         # Check if current HOR is already in this list
-                        if not found:
+                        if not exist:
                             # Not in the list, append it
                             clen = len(horvals)
                             horvals.append(cdata[2])
@@ -2498,12 +2535,6 @@ class PysageGUI(object):
                             horname += ("." + str(clen))
                             if horname not in hor_names:
                                 hor_names.append(horname)
-                        else:
-                            if idx > 0:
-                                # Add the index to the HOR name
-                                horname += ("." + str(elem))
-                                if horname not in hor_names:
-                                    hor_names.append(horname)
                     else:
                         # None of the examined HORs has the horname
                         examined_hors[horname] = [cdata[2]]
@@ -2511,7 +2542,7 @@ class PysageGUI(object):
                             hor_names.append(horname)
                 fp.write("%s\t%d\t%d\t%s\t0\t%s\t%d\t%d\t%d,%d,%d\n" % (self.seq_name, abs_start + cdata[0], abs_start + cdata[1], horname, cdata[3], abs_start + cdata[0], abs_start + cdata[1], red, green, blue))
                 # Write the correspondence (only if the HOR length is > 1)
-                if chorlen > 1 and not found:
+                if chorlen > 1 and not exist:
                     horfamilies = cdata[2].split(',')
                     hordescr = ""
                     cnt = 0
@@ -2526,7 +2557,8 @@ class PysageGUI(object):
             row += 1
         # Additional information to complete the sequence
         if abs_start + cdata[1] != abs_end:
-            fp.write("%s\t%d\t%d\tmono\t0\t+\t%d\t%d\t128,128,128\n" % (self.seq_name, abs_start + cdata[1], abs_end, abs_start + cdata[1], abs_end))
+            if abs_end - (abs_start + cdata[1]) > 1:
+                fp.write("%s\t%d\t%d\tmono\t0\t+\t%d\t%d\t128,128,128\n" % (self.seq_name, abs_start + cdata[1], abs_end, abs_start + cdata[1], abs_end))
         fp.close()
         cfp.close()
         """        
