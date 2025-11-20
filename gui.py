@@ -89,6 +89,8 @@ class PysageGUI(object):
         self.tree = None
         self.tree_backup = None # Backup for monomers' tree
         self.actual_root = None
+        self.tree_seqs = None # Sequences of the monomer tree that must be filled by HORs
+        self.tree_seq_len = None # Length of the sequences to fill with HORs
         # HOR tree
         self.hor_tree = None
         self.hor_tree_backup = None # Backup for HORs' tree
@@ -96,6 +98,7 @@ class PysageGUI(object):
         self.hor_dict = None
         self.hor_dist_from_root = None
         self.hor_dists = None
+        self.hor_subtree_roots = None
         # Family name counter
         self.fcnt = None
         # Chromosome sequence (start and end)
@@ -317,8 +320,48 @@ class PysageGUI(object):
                      # Change clade name
                      clade.name = cname
                      self.fcnt += 1
-
             assert len(old_names) == len(new_names), "Weird error in list append"
+            # Compute the locations in the monomer tree to be covered
+            seq_locs = []
+            cnt = 0
+            for clade in self.tree.find_clades():
+                 if clade.name and "chr" in clade.name:
+                     substr = clade.name.split(':')[1]
+                     sloc = substr.split('-')[0]
+                     eloc = substr.split('-')[1]
+                     # Convert into integer values (useless?)
+                     sloc = int(sloc)
+                     eloc = int(eloc)
+                     # Append start and end locations
+                     seq_locs.append([sloc, eloc])
+            # Sort locations based on start
+            seq_locs.sort()
+            nseqs = len(seq_locs)
+            # Loop over locations to find sequences to cover
+            self.tree_seqs = []
+            self.tree_seq_len = 0
+            # Set current start and end
+            cstart = seq_locs[0][0]
+            cend = seq_locs[0][1]
+            i = 1
+            # Loop
+            while i < nseqs:
+                cseq = seq_locs[i]
+                if cseq[0] <= cend:
+                    # Contiguous or contained locations
+                    cend = cseq[1]
+                elif cseq[0] - cend <= 100:
+                    # Distance < 100 -> treat locations as contiguous
+                    cend = cseq[1]
+                else:
+                    # Gap
+                    self.tree_seqs.append([cstart,cend])
+                    # Update length
+                    self.tree_seq_len += (cend - cstart)
+                    # New start and end
+                    cstart = cseq[0]
+                    cend = cseq[1]
+                i += 1
             # HORs
             self.hor_tree = trees[1]
             self.hot_tree_backup = copy.deepcopy(self.hor_tree)
@@ -331,6 +374,13 @@ class PysageGUI(object):
                 except:
                     pass
             assert self.hor_root is not None, "HORs tree: root not found!!!"
+            # Get root nodes for clades
+            self.hor_subtree_roots = {}
+            for clade in self.hor_tree.find_clades():
+                if clade.name:
+                    if clade.clades:
+                        for sclade in clade.clades:
+                            self.hor_subtree_roots[sclade.name] = clade.name
             # Get list of monomers for each hor (useful to print data)
             self.calcHorsMonomersList(old_names, new_names)
             # Calc depths
@@ -448,7 +498,7 @@ class PysageGUI(object):
             d = math.sqrt(math.pow((cx - ox), 2.0) + math.pow((cy - oy), 2.0))
             click_all = False
             unclick_all = False
-            if d <= 0.1:
+            if d <= 0.5:
                 ccolor = None
                 ckey = None
                 for key in clade_keys:
@@ -1888,7 +1938,7 @@ class PysageGUI(object):
            
         # Locations of HORs in sequence
         nlocs = len(self.locations)
-        assert nmonos == nlocs, "Inconsistent data sizes: {nmonos} vs {nlocs}".format(nmonos, nlocs)
+        assert nmonos == nlocs, f"Inconsistent data sizes: {nmonos} vs {nlocs}"#.format(nmonos, nlocs)
         
         # Workaround to make the chromosome sequence be displayed in an acceptable fashion
         gs_seq = gridspec.GridSpecFromSubplotSpec(2, 1, subplot_spec=gs[nmonos, 0], width_ratios=[self.seq_len], height_ratios=[1, 1], hspace=0.1)
@@ -2355,9 +2405,13 @@ class PysageGUI(object):
         # Get the description files in the directory
         existing_descr_files = [f for f in os.listdir(self.folder) if "description" in f]
         existing_descr_files.sort(key=natural_keys)
+        # Get the description files in the directory
+        existing_stat_files = [f for f in os.listdir(self.folder) if "stat" in f]
+        existing_stat_files.sort(key=natural_keys)
         # Build output BED filename (there is one file for each selection of the HORs)
         outfile = chrname + "_HORs_" + str(self.filecnt) + ".bed"
-        corrfile = chrname + "_HORdescription_" + str(self.filecnt) + ".txt"
+        descrfile = chrname + "_HORdescription_" + str(self.filecnt) + ".txt"
+        statfile = chrname + "_HORstat_" + str(self.filecnt) + ".txt"
         # Copy of the file counter
         cfilecnt = self.filecnt
         # If the list of bed files in the directory is empty, we do not need to check
@@ -2379,17 +2433,33 @@ class PysageGUI(object):
             # Check if the name exists or not
             ok = False
             while not ok:
-                if corrfile not in existing_descr_files:
+                if descrfile not in existing_descr_files:
                     # The name does not exist -> check finished
                     ok = True
                 else:
                     # The name has already been used -> update counter and repeat check with new name
                     cfilecnt += 1
-                    corrfile = chrname + "_HORdescription_" + str(cfilecnt) + ".txt"
+                    descrfile = chrname + "_HORdescription_" + str(cfilecnt) + ".txt"
+        # Copy of the file counter
+        cfilecnt = self.filecnt
+        # If the list of descr files in the directory is empty, we do not need to check
+        if len(existing_stat_files) > 0:
+            # Check if the name exists or not
+            ok = False
+            while not ok:
+                if statfile not in existing_stat_files:
+                    # The name does not exist -> check finished
+                    ok = True
+                else:
+                    # The name has already been used -> update counter and repeat check with new name
+                    cfilecnt += 1
+                    statfile = chrname + "_HORstat_" + str(cfilecnt) + ".txt"
         examined_hors = {}
+        hors_dict = {}
         hor_names = []
         fp = open(os.path.join(self.folder, outfile), "w")
-        cfp = open(os.path.join(self.folder, corrfile), "w")
+        dfp = open(os.path.join(self.folder, descrfile), "w")
+        sfp = open(os.path.join(self.folder, statfile), "w")
         # Write data
         rows = len(bdata)
         # First row
@@ -2431,6 +2501,7 @@ class PysageGUI(object):
             if chorlen == 1:
                 # If the length of the HOR is 1, the name is CxFy, where x denotes the chromosome number and y represents the family name
                 horname = chrname + cdata[2]
+                hors_dict[horname] = [cdata[2]]
                 if horname not in hor_names:
                     hor_names.append(horname)
             else:
@@ -2455,6 +2526,7 @@ class PysageGUI(object):
                         examined_hors[horname] = horvals
                         # Add ".val" to the name of the HOR
                         horname += ("." + str(clen))
+                        hors_dict[horname] = [cdata[2]]
                         if horname not in hor_names:
                             hor_names.append(horname)
                 else:
@@ -2473,7 +2545,7 @@ class PysageGUI(object):
                     cnt += 1
                     if cnt < len(horfamilies):
                         hordescr += ","
-                cfp.write("%s\t%s\n" % (horname, hordescr))
+                dfp.write("%s\t%s\n" % (horname, hordescr))
         else:
             fp.write("%s\t%d\t%d\t%s\t0\t%s\t%d\t%d\t128,128,128\n" % (self.seq_name, abs_start + cdata[0], abs_start + cdata[1], cdata[2], cdata[3], abs_start + cdata[0], abs_start + cdata[1]))
         # Other rows
@@ -2509,6 +2581,7 @@ class PysageGUI(object):
                 if chorlen == 1:
                     # If the length of the HOR is 1, the name is CxFy, where x denotes the chromosome number and y represents the family name
                     horname = chrname + cdata[2]
+                    hors_dict[horname] = [cdata[2]]
                     if horname not in hor_names:
                         hor_names.append(horname)
                 else:
@@ -2533,11 +2606,13 @@ class PysageGUI(object):
                             examined_hors[horname] = horvals
                             # Add ".val" to the name of the HOR
                             horname += ("." + str(clen))
+                            hors_dict[horname] = [cdata[2]]
                             if horname not in hor_names:
                                 hor_names.append(horname)
                     else:
                         # None of the examined HORs has the horname
                         examined_hors[horname] = [cdata[2]]
+                        hors_dict[horname] = [cdata[2]]
                         if horname not in hor_names:
                             hor_names.append(horname)
                 fp.write("%s\t%d\t%d\t%s\t0\t%s\t%d\t%d\t%d,%d,%d\n" % (self.seq_name, abs_start + cdata[0], abs_start + cdata[1], horname, cdata[3], abs_start + cdata[0], abs_start + cdata[1], red, green, blue))
@@ -2551,7 +2626,7 @@ class PysageGUI(object):
                         cnt += 1
                         if cnt < len(horfamilies):
                             hordescr += ","
-                    cfp.write("%s\t%s\n" % (horname, hordescr))
+                    dfp.write("%s\t%s\n" % (horname, hordescr))
             else:
                 fp.write("%s\t%d\t%d\t%s\t0\t%s\t%d\t%d\t128,128,128\n" % (self.seq_name, abs_start + cdata[0], abs_start + cdata[1], cdata[2], cdata[3], abs_start + cdata[0], abs_start + cdata[1]))
             row += 1
@@ -2559,8 +2634,105 @@ class PysageGUI(object):
         if abs_start + cdata[1] != abs_end:
             if abs_end - (abs_start + cdata[1]) > 1:
                 fp.write("%s\t%d\t%d\tmono\t0\t+\t%d\t%d\t128,128,128\n" % (self.seq_name, abs_start + cdata[1], abs_end, abs_start + cdata[1], abs_end))
+        # Statistics about HORs, families, variants and coverage
+        # HORs and families composing them
+        sfp.write("HOR:\n\n")
+        horkeys = hors_dict.keys()
+        hordescriptions = []
+        for horname in hor_names:
+            sfp.write("%s" % horname)
+            if horname in horkeys:
+                horfamilies = hors_dict[horname]
+                for horfamily in horfamilies:
+                    families = horfamily.split(',')
+                    hordescr = ""
+                    cnt = 0
+                    for family in families:
+                        hordescr += (chrname + family)
+                        cnt += 1
+                        if cnt < len(families):
+                            hordescr += ","
+                    sfp.write("\t%s\n" % hordescr)
+                    # Before appending, we check if the current HOR is a variant of some previously stored
+                    hordescriptions.append(families)
+            else:
+                # Horname might exist
+                family = horname.replace(chrname, "")
+                sfp.write("\t%s\n" % family)
+                hordescriptions.append([family])
+        # Number of variants among the selected HORs
+        # Compute the number of variants found among the selected HORs and the list of variants for each HOR
+        # Extract sets of families (unique entries)
+        horsets = []
+        horsetnames = []
+        for hordescr, horname in zip(hordescriptions, hor_names):
+            if len(hordescr) >= 2:
+                horsets.append(set(hordescr))
+                horsetnames.append(horname)
+        #print(horsets)
+        # Now examine variants
+        variants = {}
+        for i, (horset, horname) in enumerate(zip(horsets, horsetnames)):
+            horvariants = []
+            for j, (otherset, othername) in enumerate(zip(horsets, horsetnames)):
+                if i != j:
+                    minlen = min(len(horset), len(otherset))
+                    common = horset.intersection(otherset)
+                    ncommon = len(common)
+                    # Found a variant when at least 70% of the families are shared between the HORs
+                    if ncommon / minlen >= 0.7:
+                        horvariants.append(othername)
+            variants[horname] = horvariants
+        #print(variants)
+        # Compute overall number of variants based on the dict of variants
+        variants_list = []
+        for var in variants.keys():
+            elem_variants = variants[var]
+            for elem in elem_variants:
+                if elem not in variants_list:
+                    variants_list.append(elem)
+        num_variants = len(variants_list)
+        sfp.write("\n\nNumber of variants: %d\n\nVariants:\n\n" % num_variants)
+        for var in variants.keys():
+            elem_variants = variants[var]
+            if len(elem_variants) > 0:
+                sfp.write("%s\t: " % var)
+                for elem in elem_variants:
+                    sfp.write("%s\t" % elem)
+                sfp.write("\n")
+        # Compute the coverage of the selected HORs (based on the part of the sequence that can be filled by HORs)
+        coverage = 0
+        sortLocs = sorted(self.locations)
+        for locs in sortLocs:
+            #print(locs)
+            prev_start = None
+            prev_end = None
+            for loc in locs:
+                curr_start = int(loc[0])
+                curr_end = int(loc[1])
+                diff = curr_end - curr_start
+                if diff < self.tree_seq_len and diff < 1e6:
+                    if prev_start is None and prev_end is None:
+                        coverage += diff
+                        prev_start = curr_start
+                        prev_end = curr_end
+                    else:
+                        if curr_start >= prev_end:
+                            coverage += diff
+                            prev_start = curr_start
+                            prev_end = curr_end
+                        else:
+                            if curr_start > prev_start and curr_end < prev_end:
+                                print(curr_start, curr_end, prev_start, prev_end)
+                                print("location contained", loc)
+                                continue
+                else:
+                    print("location ignored", loc)
+        sfp.write("\n\nCoverage: %d\t(total = %d)\t%.3f%%\n" % (coverage, self.tree_seq_len, 100.0 * (coverage / self.tree_seq_len)))
+        # Close files
         fp.close()
-        cfp.close()
+        dfp.close()
+        sfp.close()
         """        
         # Sort HOR names alphabetically
         hor_names.sort()
