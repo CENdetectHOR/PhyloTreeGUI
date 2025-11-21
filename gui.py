@@ -2403,9 +2403,6 @@ class PysageGUI(object):
         existing_bed_files = [f for f in os.listdir(self.folder) if f.endswith("bed")]
         existing_bed_files.sort(key=natural_keys)
         # Get the description files in the directory
-        existing_descr_files = [f for f in os.listdir(self.folder) if "description" in f]
-        existing_descr_files.sort(key=natural_keys)
-        # Get the description files in the directory
         existing_stat_files = [f for f in os.listdir(self.folder) if "stat" in f]
         existing_stat_files.sort(key=natural_keys)
         # The panel with the selected HORs, their families and the sequence coverage should be saved as an output figure
@@ -2413,7 +2410,6 @@ class PysageGUI(object):
         existing_png_files.sort(key=natural_keys)
         # Build output BED filename (there is one file for each selection of the HORs)
         outfile = chrname + "_HORs_" + str(self.filecnt) + ".bed"
-        descrfile = chrname + "_HORdescription_" + str(self.filecnt) + ".txt"
         statfile = chrname + "_HORstat_" + str(self.filecnt) + ".txt"
         figfile = chrname + "_HORs_" + str(self.filecnt) + ".png"
         # Copy of the file counter
@@ -2430,20 +2426,6 @@ class PysageGUI(object):
                     # The name has already been used -> update counter and repeat check with new name
                     cfilecnt += 1
                     outfile = chrname + "_HORs_" + str(cfilecnt) + ".bed"
-        # Copy of the file counter
-        cfilecnt = self.filecnt
-        # If the list of descr files in the directory is empty, we do not need to check
-        if len(existing_descr_files) > 0:
-            # Check if the name exists or not
-            ok = False
-            while not ok:
-                if descrfile not in existing_descr_files:
-                    # The name does not exist -> check finished
-                    ok = True
-                else:
-                    # The name has already been used -> update counter and repeat check with new name
-                    cfilecnt += 1
-                    descrfile = chrname + "_HORdescription_" + str(cfilecnt) + ".txt"
         # Copy of the file counter
         cfilecnt = self.filecnt
         # If the list of descr files in the directory is empty, we do not need to check
@@ -2479,7 +2461,6 @@ class PysageGUI(object):
         hors_dict = {}
         hor_names = []
         fp = open(os.path.join(self.folder, outfile), "w")
-        dfp = open(os.path.join(self.folder, descrfile), "w")
         sfp = open(os.path.join(self.folder, statfile), "w")
         # Write data
         rows = len(bdata)
@@ -2556,17 +2537,6 @@ class PysageGUI(object):
                     if horname not in hor_names:
                         hor_names.append(horname)
             fp.write("%s\t%d\t%d\t%s\t0\t%s\t%d\t%d\t%d,%d,%d\n" % (self.seq_name, abs_start + cdata[0], abs_start + cdata[1], horname, cdata[3], abs_start + cdata[0], abs_start + cdata[1], red, green, blue))
-            # Write the correspondence (only if the HOR length is > 1)
-            if chorlen > 1 and not exist:
-                horfamilies = cdata[2].split(',')
-                hordescr = ""
-                cnt = 0
-                for family in horfamilies:
-                    hordescr += (chrname + family)
-                    cnt += 1
-                    if cnt < len(horfamilies):
-                        hordescr += ","
-                dfp.write("%s\t%s\n" % (horname, hordescr))
         else:
             fp.write("%s\t%d\t%d\t%s\t0\t%s\t%d\t%d\t128,128,128\n" % (self.seq_name, abs_start + cdata[0], abs_start + cdata[1], cdata[2], cdata[3], abs_start + cdata[0], abs_start + cdata[1]))
         # Other rows
@@ -2637,17 +2607,6 @@ class PysageGUI(object):
                         if horname not in hor_names:
                             hor_names.append(horname)
                 fp.write("%s\t%d\t%d\t%s\t0\t%s\t%d\t%d\t%d,%d,%d\n" % (self.seq_name, abs_start + cdata[0], abs_start + cdata[1], horname, cdata[3], abs_start + cdata[0], abs_start + cdata[1], red, green, blue))
-                # Write the correspondence (only if the HOR length is > 1)
-                if chorlen > 1 and not exist:
-                    horfamilies = cdata[2].split(',')
-                    hordescr = ""
-                    cnt = 0
-                    for family in horfamilies:
-                        hordescr += (chrname + family)
-                        cnt += 1
-                        if cnt < len(horfamilies):
-                            hordescr += ","
-                    dfp.write("%s\t%s\n" % (horname, hordescr))
             else:
                 fp.write("%s\t%d\t%d\t%s\t0\t%s\t%d\t%d\t128,128,128\n" % (self.seq_name, abs_start + cdata[0], abs_start + cdata[1], cdata[2], cdata[3], abs_start + cdata[0], abs_start + cdata[1]))
             row += 1
@@ -2815,7 +2774,6 @@ class PysageGUI(object):
                     print("location ignored", loc)
             sfp.write("%s: %d\t%.3f%%\n" % (new_name, hor_coverage, 100.0 * (hor_coverage / self.tree_seq_len)))
         fp.close()
-        dfp.close()
         sfp.close()
         """        
         # Sort HOR names alphabetically
