@@ -2730,6 +2730,69 @@ class PysageGUI(object):
                     print("location ignored", loc)
         sfp.write("\n\nCoverage: %d\t(total = %d)\t%.3f%%\n" % (coverage, self.tree_seq_len, 100.0 * (coverage / self.tree_seq_len)))
         # Close files
+        # Compute the coverage for each HOR
+        # Associate original HOR names to new names
+        #print(self.hors)
+        #print(hors_dict.values())
+        sfp.write("\nHOR Coverage:\n\n")
+        for hor, locs in zip(self.hors, self.locations):
+            # Build expected HOR name
+            # Extract index of first F character
+            hor_idx = hor.find('F')
+            # Extract substring
+            hor_substr = hor[hor_idx:]
+            substrlen = len(hor_substr)
+            # Build new name
+            hor_new_name = ""
+            i = 0
+            stop = False
+            while i < substrlen and not stop:
+                idx = hor_substr[(i + 1):].find('F')
+                if idx > 0:
+                    hor_new_name += hor_substr[i:(i + idx + 1)]
+                    i  += (idx + 1)
+                    if i < substrlen:
+                        hor_new_name += ","
+                else:
+                    # Last family
+                    hor_new_name += hor_substr[i:]
+                    stop = True
+            # Once the new name has been built, we need to look for the name (value) in the hors_dict struct and extract the new name (key)
+            new_name = None
+            for key, value in hors_dict.items():
+                if value == [hor_new_name]:
+                    new_name = key
+                    break
+            if new_name is None:
+                print("Something wrong happened with name building: hor name %s not in hors_dict!" % hor_new_name)
+                sys.exit()
+            # Compute coverage
+            slocs = sorted(locs)
+            hor_coverage = 0
+            prev_start = None
+            prev_end = None
+            for loc in slocs:
+                curr_start = int(loc[0])
+                curr_end = int(loc[1])
+                diff = curr_end - curr_start
+                if diff < self.tree_seq_len and diff < 1e6:
+                    if prev_start is None and prev_end is None:
+                        hor_coverage += diff
+                        prev_start = curr_start
+                        prev_end = curr_end
+                    else:
+                        if curr_start >= prev_end:
+                            hor_coverage += diff
+                            prev_start = curr_start
+                            prev_end = curr_end
+                        else:
+                            if curr_start > prev_start and curr_end < prev_end:
+                                print(curr_start, curr_end, prev_start, prev_end)
+                                print("location contained", loc)
+                                continue
+                else:
+                    print("location ignored", loc)
+            sfp.write("%s: %d\t%.3f%%\n" % (new_name, hor_coverage, 100.0 * (hor_coverage / self.tree_seq_len)))
         fp.close()
         dfp.close()
         sfp.close()
