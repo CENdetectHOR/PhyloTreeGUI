@@ -1903,14 +1903,14 @@ class PysageGUI(object):
         self.ax_tree.get_yaxis().set_visible(False)
         
         # the figure that will contain the plot 
-        other_fig = Figure(figsize = (4, 4), dpi = 100, constrained_layout=True)
+        self.other_fig = Figure(figsize = (4, 4), dpi = 100, constrained_layout=True)
         H = 1.0
         H_seq = 0.2
         H_mono = (H - H_seq) / nmonos 
         H_ratios = [H_mono for _ in range(nmonos)]
         H_ratios.append(H_seq)
         #H = 1.0 / (nmonos + 1)
-        gs = other_fig.add_gridspec(nmonos + 1, 1, height_ratios=H_ratios, hspace=0.1 * (1 / (nmonos + 1)))#0.1)
+        gs = self.other_fig.add_gridspec(nmonos + 1, 1, height_ratios=H_ratios, hspace=0.1 * (1 / (nmonos + 1)))#0.1)
         
         # Monomers in HORs
         for j in range(nmonos):
@@ -1919,7 +1919,7 @@ class PysageGUI(object):
             gs_hor = gridspec.GridSpecFromSubplotSpec(2, 2, subplot_spec=gs[j, 0], width_ratios=[hor_size, self.hor_len - hor_size], height_ratios=[1, 1], hspace=0.1)
             cmono = self.monomers[j]
             cmono_colors = self.monomer_colors[j]
-            ax_hor = other_fig.add_subplot(gs_hor[0,0])
+            ax_hor = self.other_fig.add_subplot(gs_hor[0,0])
             ax_hor.set_xlim([0, len(cmono)])
             ax_hor.set_ylim([0, 1])
             ax_hor.set_xticks(np.arange(0, len(cmono) + 1, 1))
@@ -1942,7 +1942,7 @@ class PysageGUI(object):
         
         # Workaround to make the chromosome sequence be displayed in an acceptable fashion
         gs_seq = gridspec.GridSpecFromSubplotSpec(2, 1, subplot_spec=gs[nmonos, 0], width_ratios=[self.seq_len], height_ratios=[1, 1], hspace=0.1)
-        ax_seq = other_fig.add_subplot(gs_seq[0,:])
+        ax_seq = self.other_fig.add_subplot(gs_seq[0,:])
         ax_seq.set_xlim([0, self.seq_len])
         ax_seq.set_ylim([0, 1])
         ax_seq.set_yticks([])
@@ -1967,7 +1967,7 @@ class PysageGUI(object):
         # Create the canvas
         self.tree_canvas = FigureCanvasTkAgg(self.fig, master=self.w)
         self.tree_canvas.draw()
-        self.other_canvas = FigureCanvasTkAgg(other_fig, master=self.z)
+        self.other_canvas = FigureCanvasTkAgg(self.other_fig, master=self.z)
         self.other_canvas.draw()
         # placing the canvas on the Tkinter window 
         self.tree_canvas.get_tk_widget().pack() 
@@ -2408,10 +2408,14 @@ class PysageGUI(object):
         # Get the description files in the directory
         existing_stat_files = [f for f in os.listdir(self.folder) if "stat" in f]
         existing_stat_files.sort(key=natural_keys)
+        # The panel with the selected HORs, their families and the sequence coverage should be saved as an output figure
+        existing_png_files = [f for f in os.listdir(self.folder) if f.endswith("png")]
+        existing_png_files.sort(key=natural_keys)
         # Build output BED filename (there is one file for each selection of the HORs)
         outfile = chrname + "_HORs_" + str(self.filecnt) + ".bed"
         descrfile = chrname + "_HORdescription_" + str(self.filecnt) + ".txt"
         statfile = chrname + "_HORstat_" + str(self.filecnt) + ".txt"
+        figfile = chrname + "_HORs_" + str(self.filecnt) + ".png"
         # Copy of the file counter
         cfilecnt = self.filecnt
         # If the list of bed files in the directory is empty, we do not need to check
@@ -2454,6 +2458,23 @@ class PysageGUI(object):
                     # The name has already been used -> update counter and repeat check with new name
                     cfilecnt += 1
                     statfile = chrname + "_HORstat_" + str(cfilecnt) + ".txt"
+        # Copy of the file counter
+        cfilecnt = self.filecnt
+        # If the list of bed files in the directory is empty, we do not need to check
+        if len(existing_png_files) > 0:
+            # Check if the name exists or not
+            ok = False
+            while not ok:
+                if figfile not in existing_png_files:
+                    # The name does not exist -> check finished
+                    ok = True
+                else:
+                    # The name has already been used -> update counter and repeat check with new name
+                    cfilecnt += 1
+                    figfile = chrname + "_HORs_" + str(cfilecnt) + ".png"
+        # Save panel showing HORs, families and sequence coverage as an output figure
+        self.other_fig.savefig(os.path.join(self.folder, figfile), dpi=300)
+        # HORs
         examined_hors = {}
         hors_dict = {}
         hor_names = []
