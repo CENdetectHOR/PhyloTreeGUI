@@ -515,7 +515,7 @@ class PysageGUI(object):
     # Method that allows to click on the plot and do something
     def on_click(self, event):
         # Find the HOR within a range of 0.1 (the radius of the circle)
-        found = False
+        found_patch = False
         cid = -1
         ccoord = None
         clade_keys = self.clade_coords.keys()
@@ -525,7 +525,6 @@ class PysageGUI(object):
         if self.clicked_colors is None:
             self.clicked_colors = []
         # Loop over patches
-        found = False
         for patch in self.patches:
             center = patch.center
             cx, cy = tuple(center)
@@ -640,10 +639,10 @@ class PysageGUI(object):
                                 px, py = tuple(mp.center)
                                 if ccx == px and ccy == py:
                                     mp.set_color('black')
-                found = True
+                found_patch = True
                 break
                 
-        if found:
+        if found_patch:
             self.canvas.draw()
             
     ##########################################################################
@@ -3025,7 +3024,7 @@ class PysageGUI(object):
                 while not stop:
                     # Compute new coverage
                     new_coverage, locs = self.calcNewCoverage(curr_root, curr_hors, curr_locs)
-                    if new_coverage - curr_coverage >= 10.0: # TO BE FIXED
+                    if new_coverage >= self.threshold or new_coverage - curr_coverage >= 10.0: # TO BE FIXED
                         # Sufficient amount of update, we consider this element
                         # Append root to examined roots list
                         examined_roots.append(curr_root)
@@ -3045,8 +3044,12 @@ class PysageGUI(object):
                         # Update locations
                         curr_locs.append(locs)
                         curr_hors.append(curr_root)
+                        # Update coverage
+                        self.hor_coverage[curr_root] = new_coverage - curr_coverage
                         stop = True
+                        #print(f"Current element {curr_root} improved the coverage: old value {curr_coverage:.3f}%, new value {new_coverage:.3f}%!")
                     else:
+                        #print(f"Current element {curr_root} does not sufficiently improve the coverage: old value {curr_coverage:.3f}%, new value {new_coverage:.3f}%!")
                         try:
                             curr_root = self.hor_subtree_roots[curr_root]
                         except:
