@@ -31,6 +31,7 @@ from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 from matplotlib.widgets import Slider
 import time
 import seaborn as sns
+import itertools
 
 # Seaborn palette list
 SNS_PALETTES = ['bright', 'deep', 'muted', 'Accent', 'Blues', 'BrBG', 'BuGn', 'BuPu', 'CMRmap', 'Dark2', 'GnBu', 'Greens', 'OrRd', 'Oranges', 'PRGn', 'Paired', 'Pastel1', 'Pastel2',  'PiYG', 'PuBu', 'PuBuGn', 'PuOr', 'PuRd', 'Purples', 'RdBu', 'RdGy', 'RdPu', 'RdYlBu', 'RdYlGn', 'Reds', 'Set1', 'Set2', 'Set3', 'Spectral', 'Wistia', 'YlGn', 'YlGnBu', 'YlOrBr', 'YlOrRd', 'afmhot', 'autumn', 'binary', 'bone', 'brg', 'bwr', 'cividis', 'cool', 'coolwarm', 'copper', 'cubehelix', 'flag', 'gist_earth', 'gist_heat', 'gist_ncar', 'gist_rainbow', 'gist_stern', 'gnuplot', 'gnuplot2', 'hot', 'hsv', 'icefire', 'inferno', 'magma', 'mako', 'nipy_spectral', 'ocean', 'pink', 'plasma', 'prism', 'rainbow', 'rocket', 'seismic', 'spring', 'summer', 'tab10', 'tab20', 'tab20b', 'tab20c', 'terrain', 'turbo',  'twilight', 'twilight_shifted', 'viridis', 'vlag', 'winter']
@@ -53,8 +54,8 @@ class GUIFactory:
         GUIFactory.factories[idx] = gui_factory
     add_factory = staticmethod(add_factory)
 
-    def create_gui(master, path=os.getcwd(), folder=None):
-        return PysageGUI.Factory().create(master, path=path, folder=folder)
+    def create_gui(master, path=os.getcwd(), threshold=75.0, folder=None):
+        return PysageGUI.Factory().create(master, path=path, threshold=threshold, folder=folder)
     create_gui = staticmethod(create_gui)
 
 
@@ -63,11 +64,11 @@ class GUIFactory:
 class PysageGUI(object):
 
     class Factory:
-        def create(self, master, path=os.getcwd(), folder=None): return PysageGUI(master, path=path, folder=folder)
+        def create(self, master, path=os.getcwd(), threshold=75.0, folder=None): return PysageGUI(master, path=path, threshold=threshold, folder=folder)
 
     ##########################################################################
     # standart class init
-    def __init__(self, master, path=os.getcwd(), folder=None):
+    def __init__(self, master, path=os.getcwd(), threshold=75.0, folder=None):
 
         self.master = master
         # Directory containing files (json, xml and others)
@@ -76,6 +77,8 @@ class PysageGUI(object):
         if not os.path.isdir(self.filedir):
             print(f"FATAL ERROR!!! Argument {path} is not an existing directory!")
             sys.exit()
+        # Threshold coverage (default is 75.0)
+        self.threshold = threshold
         # Default folder is current directory
         self.folder = os.getcwd()
         if folder is not None:
@@ -362,6 +365,10 @@ class PysageGUI(object):
                     cstart = cseq[0]
                     cend = cseq[1]
                 i += 1
+            #print(self.tree_seqs)
+            #print(len(self.tree_seqs))
+            #print(self.tree_seq_len)
+            #sys.exit()
             # HORs
             self.hor_tree = trees[1]
             self.hot_tree_backup = copy.deepcopy(self.hor_tree)
@@ -374,6 +381,8 @@ class PysageGUI(object):
                 except:
                     pass
             assert self.hor_root is not None, "HORs tree: root not found!!!"
+            # Get list of monomers for each hor (useful to print data)
+            self.calcHorsMonomersList(old_names, new_names)
             # Get root nodes for clades
             self.hor_subtree_roots = {}
             for clade in self.hor_tree.find_clades():
@@ -381,8 +390,6 @@ class PysageGUI(object):
                     if clade.clades:
                         for sclade in clade.clades:
                             self.hor_subtree_roots[sclade.name] = clade.name
-            # Get list of monomers for each hor (useful to print data)
-            self.calcHorsMonomersList(old_names, new_names)
             # Calc depths
             self.hor_dist_from_root = self.hor_tree.depths(unit_branch_lengths=True)
             # Save CSV file containing associations
@@ -475,6 +482,34 @@ class PysageGUI(object):
             self.monomers.append(new_monomers)
             self.locations.append(locations)
             self.monomer_colors.append(mono_colors)
+            
+    ##########################################################################
+    # Method that returns the locations of the newly selected HOR (to update sequence coverage)
+    def extractNewLocs(self, hor):
+        # Loop over the HORs
+        keys = self.hor_dist_from_root.keys()
+        for elem in keys:
+            if hor == elem.name:
+                self.hor_dists[hor] = self.hor_dist_from_root[elem]
+                break
+        # Extract monomers and locations for the new HOR
+        mono_and_locs = self.hor_dict[hor]
+        monomers = mono_and_locs[0]
+        mono_locs = mono_and_locs[1]
+        # Extract rel_start, rel_end and strand for all the locations to be plotted
+        locations = []
+        for loc in mono_locs:
+            substr = loc.split('[')[1]
+            substr2 = substr.split(']')[0]
+            substr3 = substr.split(']')[1]
+            rel_start = substr2.split(':')[0]
+            rel_end = substr2.split(':')[1]
+            strand = substr3[1]
+            locations.append([int(rel_start), int(rel_end), strand])
+        # Sort locations
+        locations.sort()
+        # Return locations for this HOR
+        return locations
         
     ##########################################################################
     # Method that allows to click on the plot and do something
@@ -511,6 +546,42 @@ class PysageGUI(object):
                                 self.clicked.append(key)
                                 self.clicked_colors.append(ccolor)
                                 self.num_clicked += 1
+                                # Find the HOR distance from the root
+                                dist_from_root = None
+                                for elem in self.hor_dist_from_root:
+                                    if elem.name == key:
+                                        dist_from_root = self.hor_dist_from_root[elem]
+                                        break
+                                # Now find all the other nodes at the same distance from the root and select them (automatic selection)
+                                # We need to collect two lists: selected clades and selected patches
+                                clades_at_the_same_dist = [key]
+                                patches_at_the_same_dist = [patch]
+                                for elem in self.hor_dist_from_root:
+                                    if elem.name not in clades_at_the_same_dist:
+                                        other_dist_from_root = self.hor_dist_from_root[elem]
+                                        if other_dist_from_root == dist_from_root:
+                                            # Find the patch
+                                            patch_to_color = None
+                                            i = 0
+                                            found = False
+                                            while i < len(self.patches) and not found:
+                                                other_patch = self.patches[i]
+                                                if other_patch not in patches_at_the_same_dist:
+                                                    other_center = other_patch.center
+                                                    ocx, ocy = tuple(other_center)
+                                                    if ocx == dist_from_root:
+                                                        patch_to_color = other_patch
+                                                        found = True
+                                                i += 1
+                                            # If the patch has not been found, something weird happened!!!
+                                            assert found == True, "Patch not found!!"
+                                            ccolor = self.hor_colors[self.num_clicked % len(self.hor_colors)]
+                                            patch_to_color.set_color(ccolor)
+                                            self.clicked.append(elem.name)
+                                            self.clicked_colors.append(ccolor)
+                                            self.num_clicked += 1
+                                            clades_at_the_same_dist.append(elem.name)
+                                            patches_at_the_same_dist.append(patch_to_color)
                             else:
                                 # HOR already selected, unselect
                                 # Before changing color, we must remove the right entry in the <clicked_colors> list
@@ -2680,42 +2751,11 @@ class PysageGUI(object):
                 for elem in elem_variants:
                     sfp.write("%s\t" % elem)
                 sfp.write("\n")
-        # Compute the coverage of the selected HORs (based on the part of the sequence that can be filled by HORs)
-        coverage = 0
-        sortLocs = sorted(self.locations)
-        for locs in sortLocs:
-            #print(locs)
-            prev_start = None
-            prev_end = None
-            for loc in locs:
-                curr_start = int(loc[0])
-                curr_end = int(loc[1])
-                diff = curr_end - curr_start
-                if diff < self.tree_seq_len and diff < 1e6:
-                    if prev_start is None and prev_end is None:
-                        coverage += diff
-                        prev_start = curr_start
-                        prev_end = curr_end
-                    else:
-                        if curr_start >= prev_end:
-                            coverage += diff
-                            prev_start = curr_start
-                            prev_end = curr_end
-                        else:
-                            if curr_start > prev_start and curr_end < prev_end:
-                                print(curr_start, curr_end, prev_start, prev_end)
-                                print("location contained", loc)
-                                continue
-                else:
-                    print("location ignored", loc)
-        sfp.write("\n\nCoverage: %d\t(total = %d)\t%.3f%%\n" % (coverage, self.tree_seq_len, 100.0 * (coverage / self.tree_seq_len)))
-        # Close files
-        # Compute the coverage for each HOR
+        # Compute the coverage of the selected HORs (based on the part of the sequence that can be filled by HORs) and the coverage for each HOR
+        self.hor_coverage = {}
+        hor_name_rel = {} # Relationship between HOR names and data stored in the bed file
         # Associate original HOR names to new names
-        #print(self.hors)
-        #print(hors_dict.values())
-        sfp.write("\nHOR Coverage:\n\n")
-        for hor, locs in zip(self.hors, self.locations):
+        for hor in self.hors:
             # Build expected HOR name
             # Extract index of first F character
             hor_idx = hor.find('F')
@@ -2746,33 +2786,47 @@ class PysageGUI(object):
             if new_name is None:
                 print("Something wrong happened with name building: hor name %s not in hors_dict!" % hor_new_name)
                 sys.exit()
-            # Compute coverage
-            slocs = sorted(locs)
-            hor_coverage = 0
-            prev_start = None
-            prev_end = None
-            for loc in slocs:
-                curr_start = int(loc[0])
-                curr_end = int(loc[1])
-                diff = curr_end - curr_start
-                if diff < self.tree_seq_len and diff < 1e6:
-                    if prev_start is None and prev_end is None:
-                        hor_coverage += diff
-                        prev_start = curr_start
-                        prev_end = curr_end
-                    else:
-                        if curr_start >= prev_end:
-                            hor_coverage += diff
-                            prev_start = curr_start
-                            prev_end = curr_end
-                        else:
-                            if curr_start > prev_start and curr_end < prev_end:
-                                print(curr_start, curr_end, prev_start, prev_end)
-                                print("location contained", loc)
-                                continue
-                else:
-                    print("location ignored", loc)
+            hor_name_rel[hor] = new_name
+        # Coverage is calculated based on data stored in the bed file
+        coverage = 0
+        for i in range(len(bdata)):
+            # Get current start, end and HOR
+            cdata = bdata[i]
+            # Get the HOR
+            hor = cdata[2]
+            if hor == 'mono':
+                # Ignore data related to monomer regions
+                continue
+            # Extract HOR name
+            hor_name = list(hors_dict.keys())[list(hors_dict.values()).index([hor])]
+            hor_new = list(hor_name_rel.keys())[list(hor_name_rel.values()).index(hor_name)]
+            # Initialize coverage if the HOR has not yet examined or extract current coverage
+            if hor_new in self.hor_coverage.keys():
+                hor_coverage = self.hor_coverage[hor_new]
+            else:
+                hor_coverage = 0
+            # Get start and end
+            start = int(cdata[0])
+            end = int(cdata[1])
+            # Update both HOR coverage and total coverage
+            hor_coverage += end - start
+            coverage += end - start
+            # Update HOR coverage in the dict
+            self.hor_coverage[hor_new] = hor_coverage
+        # Normalize total coverage
+        self.total_coverage = 100.0 * (coverage / self.tree_seq_len)
+        sfp.write("\n\nCoverage: %d\t(total = %d)\t%.3f%%\n" % (coverage, self.tree_seq_len, self.total_coverage))
+        # Check if coverage is over threshold
+        if self.total_coverage < self.threshold:
+            self.popupMsg(f"Coverage {self.total_coverage:.3f}% below threshold {self.threshold}%, you must close the gaps!!!")
+        sfp.write("\nHOR Coverage:\n\n")
+        for hor in self.hor_coverage.keys():
+            new_name = hor_name_rel[hor]
+            hor_coverage = self.hor_coverage[hor]
             sfp.write("%s: %d\t%.3f%%\n" % (new_name, hor_coverage, 100.0 * (hor_coverage / self.tree_seq_len)))
+            # Update coverage
+            self.hor_coverage[hor] = 100.0 * (hor_coverage / self.tree_seq_len)
+        # Close files
         fp.close()
         sfp.close()
         """        
@@ -2797,7 +2851,211 @@ class PysageGUI(object):
         Phylo.write(new_trees, outfile, format='phyloxml')
         """
         
-    ##########################################################################    <
+    ##########################################################################
+    # Manage overlaps between locations <clocs> of <elem> and already covered locations <olocs> by other <elems>
+    def checkNewOverlaps(self, elem, clocs, hors, locs):
+        # List of locations to remove
+        clocs_to_remove = []
+        # List of locations to insert
+        clocs_to_add = []
+        for i, hor in enumerate(hors):
+            if hor in self.clicked and hor != elem:
+                olocs = locs[i]
+                # List of locations to remove
+                olocs_to_remove = []
+                # List of locations to insert
+                olocs_to_add = []
+                for oidx, oloc in enumerate(olocs):
+                    if oloc in olocs_to_remove:
+                        continue
+                    oloc_start = oloc[0]
+                    oloc_end = oloc[1]
+                    oloc_strand = oloc[2]
+                    for cidx, cloc in enumerate(clocs):
+                        if cloc in clocs_to_remove:
+                            continue
+                        cloc_start = cloc[0]
+                        cloc_end = cloc[1]
+                        cloc_strand = cloc[2]
+                        # Check partial overlaps first
+                        # Check whether locations partially overlap
+                        if cloc_start < oloc_start and cloc_end > oloc_start and cloc_end < oloc_end:
+                            # Modify locations based on distance from root (farther to be kept, since it is more specific)
+                            if self.hor_dists[elem] > self.hor_dists[hor]:
+                                oloc[0] = cloc[1]
+                            else:
+                                cloc[1] = oloc[0]
+                        else:
+                            # Now check full overlaps
+                            if cloc_start == oloc_start and cloc_end == oloc_end:
+                                # Two HORs perfectly overlap (same start and end locations) -> keep the one further from the root
+                                if self.hor_dists[elem] > self.hor_dists[hor]:
+                                    if oloc not in olocs_to_remove:
+                                        olocs_to_remove.append(oloc)
+                                else:
+                                    if cloc not in clocs_to_remove:
+                                        clocs_to_remove.append(cloc)
+                            else:
+                                if cloc_start <= oloc_start and cloc_end >= oloc_end:
+                                    # cloc contains oloc
+                                    # Check distance from root
+                                    if self.hor_dists[elem] > self.hor_dists[hor]:
+                                        # remove oloc (chor is more specific)
+                                        if oloc not in olocs_to_remove:
+                                            olocs_to_remove.append(oloc)
+                                    else:
+                                        # Modify locations
+                                        # Copy current end of cloc
+                                        tmp_end = cloc[1]
+                                        if cloc[0] != oloc[0]:
+                                            cloc[1] = oloc[0]
+                                        else:
+                                            if cloc not in clocs_to_remove:
+                                                clocs_to_remove.append(cloc)
+                                        if oloc[1] != tmp_end:
+                                            clocs_to_add.append([oloc[1], tmp_end, cloc[2]])
+                                else:
+                                    # Check whether oloc contains cloc
+                                    if oloc_start <= cloc_start and oloc_end >= cloc_end:
+                                        # oloc contains cloc
+                                        # Check distance from root
+                                        if self.hor_dists[hor] > self.hor_dists[elem]:
+                                            # remove cloc (chor is more specific)
+                                            if cloc not in clocs_to_remove:
+                                                clocs_to_remove.append(cloc)
+                                        else:
+                                            # Modify locations
+                                            # Copy current end of cloc
+                                            tmp_end = oloc[1]
+                                            if oloc[0] != cloc[0]:
+                                                oloc[1] = cloc[0]
+                                            else:
+                                                if oloc not in olocs_to_remove:
+                                                    olocs_to_remove.append(oloc)
+                                            if cloc[1] != tmp_end:
+                                                olocs_to_add.append([cloc[1], tmp_end, oloc[2]])
+                # Remove locations overlapping
+                for oloc in olocs_to_remove:
+                    olocs.remove(oloc)
+                # Add locations
+                for oloc in olocs_to_add:
+                    olocs.append(oloc)
+        # Remove locations overlapping
+        for cloc in clocs_to_remove:
+            clocs.remove(cloc)
+        # Add locations
+        for cloc in clocs_to_add:
+            clocs.append(cloc)
+        return clocs, locs
+        
+    ##########################################################################
+    # Compute the new coverage of element <elem> given the locations
+    def calcNewCoverage(self, elem, elems, locs):
+        # Copy locations
+        #curr_locs = copy.deepcopy(locs)
+        # Compute the locations of the sequence covered by <elem>
+        locations = self.extractNewLocs(elem)
+        # Manage overlaps
+        clocs, olocs = self.checkNewOverlaps(elem, locations, elems, locs)
+        # Create new array of locations
+        curr_locs = olocs
+        curr_locs.append(clocs)
+        # Append locations
+        #curr_locs.append(locations)
+        # Compute new coverage
+        coverage = 0
+        newLocs = list(itertools.chain.from_iterable(curr_locs))
+        sortLocs = sorted(newLocs)
+        prev_start = None
+        prev_end = None
+        for i, loc in enumerate(sortLocs):
+            curr_start = int(loc[0])
+            curr_end = int(loc[1])
+            diff = curr_end - curr_start
+            if diff < self.tree_seq_len:
+                if prev_start is None and prev_end is None:
+                    coverage += diff
+                    prev_start = curr_start
+                    prev_end = curr_end
+                else:
+                    if curr_start >= prev_end:
+                        coverage += diff
+                        prev_start = curr_start
+                        prev_end = curr_end
+                    else:
+                        if curr_start > prev_start and curr_end < prev_end:
+                            pass
+                        elif curr_start > prev_start and curr_end > prev_end:
+                            # Partial overlap -> add remaining part
+                            coverage += (curr_end - prev_end)
+            else:
+                pass
+            #print(i, loc, coverage)
+        # Total coverage
+        new_coverage = 100.0 * (coverage / self.tree_seq_len)  
+        return new_coverage, clocs#locations
+    
+    ##########################################################################
+    # Close gaps
+    def closeGaps(self):
+        # Copy of clicked nodes (HORs) and locations
+        clicked = copy.deepcopy(self.clicked)
+        curr_hors = copy.deepcopy(self.hors)
+        curr_locs = copy.deepcopy(self.locations)
+        curr_coverage = self.total_coverage
+        # Try to close as many gaps as possible in order to reach the desired coverage threshold
+        examined = []
+        examined_roots = []
+        while curr_coverage <= self.threshold and len(examined) != len(clicked):
+            print(curr_coverage, self.threshold, len(examined), len(clicked))
+            max_coverage = 0.0
+            max_elem = None
+            for elem in clicked:
+                if elem not in examined:
+                    coverage = self.hor_coverage[elem]
+                    if coverage > max_coverage:
+                        max_coverage = coverage
+                        max_elem = elem
+            # Append element to examined list
+            examined.append(max_elem)
+            elem_root = self.hor_subtree_roots[max_elem]
+            if elem_root not in examined_roots:
+                curr_root = copy.deepcopy(elem_root)
+                stop = False
+                while not stop:
+                    # Compute new coverage
+                    new_coverage, locs = self.calcNewCoverage(curr_root, curr_hors, curr_locs)
+                    if new_coverage - curr_coverage >= 10.0: # TO BE FIXED
+                        # Sufficient amount of update, we consider this element
+                        # Append root to examined roots list
+                        examined_roots.append(curr_root)
+                        ccolor = self.hor_colors[self.num_clicked % len(self.hor_colors)]
+                        self.clicked.append(curr_root)
+                        self.clicked_colors.append(ccolor)
+                        self.num_clicked += 1
+                        x, y = tuple(self.clade_coords[elem_root])
+                        for i, patch in enumerate(self.patches):
+                            center = patch.center
+                            cx, cy = tuple(center)
+                            if cx == x and cy == y:
+                                patch.set_color(ccolor)
+                                break
+                        # Update coverage
+                        curr_coverage = new_coverage
+                        # Update locations
+                        curr_locs.append(locs)
+                        curr_hors.append(curr_root)
+                        stop = True
+                    else:
+                        try:
+                            curr_root = self.hor_subtree_roots[curr_root]
+                        except:
+                            print(f"Current element {curr_root} is the root of the HOR tree!")
+                            stop = True
+        # Draw to see newly added HORs in the HOR tree
+        self.canvas.draw()
+        
+    ##########################################################################
     # Reset
     def reset(self):
         # Set color of nodes in the HOR tree to black
@@ -2842,16 +3100,18 @@ class PysageGUI(object):
         self.load_file = tk.Button(self.toolbar, text="LoadFile", command=lambda: self.loadFile(filename=self.filename))
         self.plot_tree = tk.Button(self.toolbar, text="PlotTree", command=lambda: self.plotTree())
         self.show_data = tk.Button(self.toolbar, text="ShowData", command=lambda: self.showData())
-        self.zoom_in = tk.Button(self.toolbar, text="ZoomIn", command=lambda: self.zoomIn())
-        self.zoom_out = tk.Button(self.toolbar, text="ZoomOut", command=lambda: self.zoomOut())
+        #self.zoom_in = tk.Button(self.toolbar, text="ZoomIn", command=lambda: self.zoomIn())
+        #self.zoom_out = tk.Button(self.toolbar, text="ZoomOut", command=lambda: self.zoomOut())
         self.get_output = tk.Button(self.toolbar, text="GetOutput", command=lambda: self.getOutput())
+        self.close_gap = tk.Button(self.toolbar, text="CloseGaps", command=lambda: self.closeGaps())
         self.reset_win = tk.Button(self.toolbar, text="Reset", command=lambda: self.reset())
         self.load_file.pack(side='left')
         self.plot_tree.pack(side='left')
         self.show_data.pack(side='left')
-        self.zoom_in.pack(side='left')
-        self.zoom_out.pack(side='left')
+        #self.zoom_in.pack(side='left')
+        #self.zoom_out.pack(side='left')
         self.get_output.pack(side='left')
+        self.close_gap.pack(side='left')
         self.reset_win.pack(side='left')
         # Create frame where the monomers' tree will be displayed
         self.w = tk.Frame(self.master, background="dimgray")#, width=int(screen_width / 2), height=screen_height)
