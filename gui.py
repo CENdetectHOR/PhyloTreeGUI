@@ -108,6 +108,8 @@ class PysageGUI(object):
         self.chr_seq = None
         self.seq_name = None
         self.seq_len = 1.0
+        # Sequence coverage
+        self.total_coverage = 0
         # List of monomers to be plotted
         self.monomers = None
         self.monomer_colors = None
@@ -124,6 +126,7 @@ class PysageGUI(object):
         self.clade_ids = {}
         self.clicked = None
         self.clicked_colors = None
+        self.clicked_patches = None
         self.num_clicked = 0
         self.patches = None
         # Nodes to be collapsed and relative information
@@ -524,6 +527,8 @@ class PysageGUI(object):
             self.clicked = []
         if self.clicked_colors is None:
             self.clicked_colors = []
+        if self.clicked_patches is None:
+            self.clicked_patches = []
         # Loop over patches
         for patch in self.patches:
             center = patch.center
@@ -544,43 +549,8 @@ class PysageGUI(object):
                                 patch.set_color(ccolor)
                                 self.clicked.append(key)
                                 self.clicked_colors.append(ccolor)
+                                self.clicked_patches.append(patch)
                                 self.num_clicked += 1
-                                # Find the HOR distance from the root
-                                dist_from_root = None
-                                for elem in self.hor_dist_from_root:
-                                    if elem.name == key:
-                                        dist_from_root = self.hor_dist_from_root[elem]
-                                        break
-                                # Now find all the other nodes at the same distance from the root and select them (automatic selection)
-                                # We need to collect two lists: selected clades and selected patches
-                                clades_at_the_same_dist = [key]
-                                patches_at_the_same_dist = [patch]
-                                for elem in self.hor_dist_from_root:
-                                    if elem.name not in clades_at_the_same_dist:
-                                        other_dist_from_root = self.hor_dist_from_root[elem]
-                                        if other_dist_from_root == dist_from_root:
-                                            # Find the patch
-                                            patch_to_color = None
-                                            i = 0
-                                            found = False
-                                            while i < len(self.patches) and not found:
-                                                other_patch = self.patches[i]
-                                                if other_patch not in patches_at_the_same_dist:
-                                                    other_center = other_patch.center
-                                                    ocx, ocy = tuple(other_center)
-                                                    if ocx == dist_from_root:
-                                                        patch_to_color = other_patch
-                                                        found = True
-                                                i += 1
-                                            # If the patch has not been found, something weird happened!!!
-                                            assert found == True, "Patch not found!!"
-                                            ccolor = self.hor_colors[self.num_clicked % len(self.hor_colors)]
-                                            patch_to_color.set_color(ccolor)
-                                            self.clicked.append(elem.name)
-                                            self.clicked_colors.append(ccolor)
-                                            self.num_clicked += 1
-                                            clades_at_the_same_dist.append(elem.name)
-                                            patches_at_the_same_dist.append(patch_to_color)
                             else:
                                 # HOR already selected, unselect
                                 # Before changing color, we must remove the right entry in the <clicked_colors> list
@@ -601,6 +571,7 @@ class PysageGUI(object):
                                     patch.set_color(ccolor)
                                     self.clicked.append(key)
                                     self.clicked_colors.append(ccolor)
+                                    self.clicked_patches.append(patch)
                                     self.num_clicked += 1
                                     click_all = True
                                 else:
@@ -615,6 +586,7 @@ class PysageGUI(object):
                                             break
                                     patch.set_color('black')
                                     self.clicked.remove(key)
+                                    self.clicked_patches.remove(patch)
                                     unclick_all = True
                 # Only for HORs appearing in different branches in the HOR tree we check if they have to be all clicked/unclicked
                 if click_all:
@@ -642,6 +614,60 @@ class PysageGUI(object):
                 found_patch = True
                 break
                 
+        if found_patch:
+            self.canvas.draw()
+            
+    ##########################################################################
+    def selectDepth(self):
+        if len(self.clicked) == 0:
+            self.popupMsg(f"You must select a HOR first!!!")
+            return
+            
+        # Copy of clicked to avoid infinite looping!!!
+        clicked = copy.deepcopy(self.clicked)
+        
+        # Loop over already clicked HORs    
+        for j, hor in enumerate(clicked):
+            # Find the HOR distance from the root
+            dist_from_root = None
+            for elem in self.hor_dist_from_root:
+                if elem.name == hor:
+                    dist_from_root = self.hor_dist_from_root[elem]
+                    break
+            # Now find all the other nodes at the same distance from the root and select them (automatic selection)
+            # We need to collect two lists: selected clades and selected patches
+            clades_at_the_same_dist = [hor]
+            patches_at_the_same_dist = [self.clicked_patches[j]]
+            found_patch = False
+            for elem in self.hor_dist_from_root:
+                if elem.name not in clades_at_the_same_dist:
+                    other_dist_from_root = self.hor_dist_from_root[elem]
+                    if other_dist_from_root == dist_from_root:
+                        # Find the patch
+                        patch_to_color = None
+                        i = 0
+                        found = False
+                        while i < len(self.patches) and not found:
+                            other_patch = self.patches[i]
+                            if other_patch not in patches_at_the_same_dist:
+                                other_center = other_patch.center
+                                ocx, ocy = tuple(other_center)
+                                if ocx == dist_from_root:
+                                    patch_to_color = other_patch
+                                    found = True
+                            i += 1
+                        # If the patch has not been found, something weird happened!!!
+                        assert found == True, "Patch not found!!"
+                        ccolor = self.hor_colors[self.num_clicked % len(self.hor_colors)]
+                        patch_to_color.set_color(ccolor)
+                        self.clicked.append(elem.name)
+                        self.clicked_colors.append(ccolor)
+                        self.clicked_patches.append(patch_to_color)
+                        self.num_clicked += 1
+                        clades_at_the_same_dist.append(elem.name)
+                        patches_at_the_same_dist.append(patch_to_color)
+                        found_patch = True
+
         if found_patch:
             self.canvas.draw()
             
@@ -3006,12 +3032,13 @@ class PysageGUI(object):
         examined = []
         examined_roots = []
         while curr_coverage <= self.threshold and len(examined) != len(clicked):
-            print(curr_coverage, self.threshold, len(examined), len(clicked))
+            #print(curr_coverage, self.threshold, len(examined), len(clicked))
             max_coverage = 0.0
             max_elem = None
             for elem in clicked:
                 if elem not in examined:
                     coverage = self.hor_coverage[elem]
+                    print(elem, examined, coverage, max_coverage)
                     if coverage > max_coverage:
                         max_coverage = coverage
                         max_elem = elem
@@ -3024,7 +3051,7 @@ class PysageGUI(object):
                 while not stop:
                     # Compute new coverage
                     new_coverage, locs = self.calcNewCoverage(curr_root, curr_hors, curr_locs)
-                    if new_coverage >= self.threshold or new_coverage - curr_coverage >= 10.0: # TO BE FIXED
+                    if new_coverage >= self.threshold:# or new_coverage - curr_coverage >= 10.0: # TO BE FIXED
                         # Sufficient amount of update, we consider this element
                         # Append root to examined roots list
                         examined_roots.append(curr_root)
@@ -3032,20 +3059,21 @@ class PysageGUI(object):
                         self.clicked.append(curr_root)
                         self.clicked_colors.append(ccolor)
                         self.num_clicked += 1
-                        x, y = tuple(self.clade_coords[elem_root])
+                        x, y = tuple(self.clade_coords[curr_root])
                         for i, patch in enumerate(self.patches):
                             center = patch.center
                             cx, cy = tuple(center)
                             if cx == x and cy == y:
                                 patch.set_color(ccolor)
+                                self.clicked_patches.append(patch)
                                 break
+                        # Update coverage
+                        self.hor_coverage[curr_root] = new_coverage - curr_coverage
                         # Update coverage
                         curr_coverage = new_coverage
                         # Update locations
                         curr_locs.append(locs)
                         curr_hors.append(curr_root)
-                        # Update coverage
-                        self.hor_coverage[curr_root] = new_coverage - curr_coverage
                         stop = True
                         #print(f"Current element {curr_root} improved the coverage: old value {curr_coverage:.3f}%, new value {new_coverage:.3f}%!")
                     else:
@@ -3102,6 +3130,7 @@ class PysageGUI(object):
         # Buttons (and associated commands)
         self.load_file = tk.Button(self.toolbar, text="LoadFile", command=lambda: self.loadFile(filename=self.filename))
         self.plot_tree = tk.Button(self.toolbar, text="PlotTree", command=lambda: self.plotTree())
+        self.select_depth = tk.Button(self.toolbar, text="SelectDepth", command=lambda: self.selectDepth())
         self.show_data = tk.Button(self.toolbar, text="ShowData", command=lambda: self.showData())
         #self.zoom_in = tk.Button(self.toolbar, text="ZoomIn", command=lambda: self.zoomIn())
         #self.zoom_out = tk.Button(self.toolbar, text="ZoomOut", command=lambda: self.zoomOut())
@@ -3110,6 +3139,7 @@ class PysageGUI(object):
         self.reset_win = tk.Button(self.toolbar, text="Reset", command=lambda: self.reset())
         self.load_file.pack(side='left')
         self.plot_tree.pack(side='left')
+        self.select_depth.pack(side='left')
         self.show_data.pack(side='left')
         #self.zoom_in.pack(side='left')
         #self.zoom_out.pack(side='left')
