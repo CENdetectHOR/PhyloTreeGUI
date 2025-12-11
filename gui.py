@@ -394,7 +394,7 @@ class PysageGUI(object):
                         for sclade in clade.clades:
                             self.hor_subtree_roots[sclade.name] = clade.name
             # Calc depths
-            self.hor_dist_from_root = self.hor_tree.depths(unit_branch_lengths=True)
+            self.hor_dist_from_root = self.hor_tree.depths(unit_branch_lengths=True) # To be modified if we do not want to use unit branch lengths!
             # Save CSV file containing associations
             self.data = {"old_name": old_names, "new_name": new_names}
             self.tree_for_file = copy.deepcopy(self.tree)
@@ -620,7 +620,7 @@ class PysageGUI(object):
     ##########################################################################
     def selectDepth(self):
         if len(self.clicked) == 0:
-            self.popupMsg(f"You must select a HOR first!!!")
+            self.popupMsg(f"You must select a HOR first.")
             return
             
         # Copy of clicked to avoid infinite looping!!!
@@ -664,12 +664,29 @@ class PysageGUI(object):
                         self.clicked_colors.append(ccolor)
                         self.clicked_patches.append(patch_to_color)
                         self.num_clicked += 1
+                        # Check if the element has multiple entries in the HOR tree
+                        coords = self.clade_coords[elem.name]
+                        other_patch_in_list = None
+                        if isinstance(coords, list):
+                            for coord in coords:
+                                ccx, ccy = tuple(coord)
+                                if ccx != ocx or ccy != ocy:
+                                    # Found new coordinates for the HOR in the HOR tree
+                                    # Look for the patch
+                                    for mp in self.patches:
+                                        px, py = tuple(mp.center)
+                                        if ccx == px and ccy == py:
+                                            mp.set_color(ccolor)
+                                            self.clicked_patches.append(ccolor)
+                                            other_patch_in_list = mp
+                                            break
                         clades_at_the_same_dist.append(elem.name)
                         patches_at_the_same_dist.append(patch_to_color)
+                        if other_patch_in_list is not None:
+                            patches_at_the_same_dist.append(other_patch_in_list)
                         found_patch = True
 
-        if found_patch:
-            self.canvas.draw()
+        self.canvas.draw()
             
     ##########################################################################
     def expandSubTree(self, event):
@@ -696,7 +713,7 @@ class PysageGUI(object):
     # Zoom in
     def zoomIn(self):
         if len(self.zoomed_nodes) == 0:
-            self.popupMsg("You must click a node before zooming!!!")
+            self.popupMsg("You must click a node before zooming.")
             return
         # Clear figure
         self.ax_tree.clear()
@@ -1789,7 +1806,7 @@ class PysageGUI(object):
     # GUI plotTree: plot tree (detailed)
     def plotTree(self):
         if self.hor_tree is None:
-            self.popupMsg("You must load the phyloXML file before plotting!!!")
+            self.popupMsg("You must load the phyloXML file before plotting.")
             return
         if self.canvas is not None:
             self.canvas.get_tk_widget().destroy()
@@ -1950,7 +1967,7 @@ class PysageGUI(object):
     # Show data
     def showData(self):
         if self.tree is None:
-            self.popupMsg("You must load the phyloXML file before plotting!!!")
+            self.popupMsg("You must load the phyloXML file before plotting.")
             return
         if self.tree_canvas is not None:
             self.tree_canvas.get_tk_widget().destroy()
@@ -1963,7 +1980,7 @@ class PysageGUI(object):
              
         # Check whether at least one of the HORs has been clicked
         if len(self.clicked) < 1:
-            self.popupMsg("You can see monomers' tree only after choosing at least one of the HORs!!!")
+            self.popupMsg("You can see monomers' tree only after choosing at least one of the HORs.")
             return
             
         # Extract HORs
@@ -2095,7 +2112,7 @@ class PysageGUI(object):
             # Set zoom flag to false
             self.zoomed = False
         else:
-            self.popupMsg("No active zoom found!!!")
+            self.popupMsg("No active zoom found.")
         return
         
     ##########################################################################    
@@ -2843,7 +2860,7 @@ class PysageGUI(object):
         sfp.write("\n\nCoverage: %d\t(total = %d)\t%.3f%%\n" % (coverage, self.tree_seq_len, self.total_coverage))
         # Check if coverage is over threshold
         if self.total_coverage < self.threshold:
-            self.popupMsg(f"Coverage {self.total_coverage:.3f}% below threshold {self.threshold}%, you must close the gaps!!!")
+            self.popupMsg(f"Coverage {self.total_coverage:.3f}% below threshold {self.threshold}%, you must close the gaps.")
         sfp.write("\nHOR Coverage:\n\n")
         for hor in self.hor_coverage.keys():
             new_name = hor_name_rel[hor]
@@ -3095,6 +3112,7 @@ class PysageGUI(object):
         # Reset number of clicked items
         self.clicked = []
         self.clicked_colors = []
+        self.clicked_patches = []
         self.num_clicked = 0
         self.canvas.draw()
         # Delete visualization of other figures (i.e., HORs, sequence and monomers' tree)
@@ -3104,6 +3122,14 @@ class PysageGUI(object):
             self.other_canvas.get_tk_widget().destroy()
         # Reset also file counter
         self.filecnt = 0
+        
+    ##########################################################################    
+    def setThreshold(self, event):
+        self.threshold = eval(self.entry.get())
+        if self.threshold < 0.0 or self.threshold > 100.0:
+            self.popupMsg(f"Coverage threshold {self.threshold}% must be in the range [0,100], select another value.")
+            self.threshold = None
+            return
         
     ##########################################################################    
     # Select the file to be loaded
@@ -3183,4 +3209,10 @@ class PysageGUI(object):
         # label 
         file_label = tk.Label(self.toolbar, text = "Load file(s) :",  font = ("Times New Roman", 10))
         file_label.pack(side='right')
+        # Create entry to set the threshold for sequence coverage
+        self.entry = tk.Entry(self.toolbar)
+        self.entry.bind("<Return>", self.setThreshold)
+        self.entry.pack(side='right')
+        coverage_label = tk.Label(self.toolbar, text="Desired coverage:")
+        coverage_label.pack(side='right')
         
