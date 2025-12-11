@@ -33,6 +33,9 @@ import time
 import seaborn as sns
 import itertools
 
+# Default sequence coverage threshold
+COVERAGE_THRESHOLD = 75.0
+
 # Seaborn palette list
 SNS_PALETTES = ['bright', 'deep', 'muted', 'Accent', 'Blues', 'BrBG', 'BuGn', 'BuPu', 'CMRmap', 'Dark2', 'GnBu', 'Greens', 'OrRd', 'Oranges', 'PRGn', 'Paired', 'Pastel1', 'Pastel2',  'PiYG', 'PuBu', 'PuBuGn', 'PuOr', 'PuRd', 'Purples', 'RdBu', 'RdGy', 'RdPu', 'RdYlBu', 'RdYlGn', 'Reds', 'Set1', 'Set2', 'Set3', 'Spectral', 'Wistia', 'YlGn', 'YlGnBu', 'YlOrBr', 'YlOrRd', 'afmhot', 'autumn', 'binary', 'bone', 'brg', 'bwr', 'cividis', 'cool', 'coolwarm', 'copper', 'cubehelix', 'flag', 'gist_earth', 'gist_heat', 'gist_ncar', 'gist_rainbow', 'gist_stern', 'gnuplot', 'gnuplot2', 'hot', 'hsv', 'icefire', 'inferno', 'magma', 'mako', 'nipy_spectral', 'ocean', 'pink', 'plasma', 'prism', 'rainbow', 'rocket', 'seismic', 'spring', 'summer', 'tab10', 'tab20', 'tab20b', 'tab20c', 'terrain', 'turbo',  'twilight', 'twilight_shifted', 'viridis', 'vlag', 'winter']
 
@@ -54,8 +57,8 @@ class GUIFactory:
         GUIFactory.factories[idx] = gui_factory
     add_factory = staticmethod(add_factory)
 
-    def create_gui(master, path=os.getcwd(), threshold=75.0, folder=None):
-        return PysageGUI.Factory().create(master, path=path, threshold=threshold, folder=folder)
+    def create_gui(master, path=os.getcwd(), folder=None):
+        return PysageGUI.Factory().create(master, path=path, folder=folder)
     create_gui = staticmethod(create_gui)
 
 
@@ -64,11 +67,11 @@ class GUIFactory:
 class PysageGUI(object):
 
     class Factory:
-        def create(self, master, path=os.getcwd(), threshold=75.0, folder=None): return PysageGUI(master, path=path, threshold=threshold, folder=folder)
+        def create(self, master, path=os.getcwd(), folder=None): return PysageGUI(master, path=path, folder=folder)
 
     ##########################################################################
     # standart class init
-    def __init__(self, master, path=os.getcwd(), threshold=75.0, folder=None):
+    def __init__(self, master, path=os.getcwd(), folder=None):
 
         self.master = master
         # Directory containing files (json, xml and others)
@@ -78,7 +81,7 @@ class PysageGUI(object):
             print(f"FATAL ERROR!!! Argument {path} is not an existing directory!")
             sys.exit()
         # Threshold coverage (default is 75.0)
-        self.threshold = threshold
+        self.threshold = COVERAGE_THRESHOLD
         # Default folder is current directory
         self.folder = os.getcwd()
         if folder is not None:
@@ -3128,7 +3131,7 @@ class PysageGUI(object):
         self.threshold = eval(self.entry.get())
         if self.threshold < 0.0 or self.threshold > 100.0:
             self.popupMsg(f"Coverage threshold {self.threshold}% must be in the range [0,100], select another value.")
-            self.threshold = None
+            self.threshold = COVERAGE_THRESHOLD
             return
         
     ##########################################################################    
