@@ -8,6 +8,7 @@ from matplotlib import cm
 import tkinter as tk
 import tkinter.font as font
 from tkinter import ttk
+from tkinter import *
 import numpy as np
 import json
 from Bio import Phylo
@@ -3130,9 +3131,9 @@ class PysageGUI(object):
     def setThreshold(self, event):
         self.threshold = eval(self.entry.get())
         if self.threshold < 0.0 or self.threshold > 100.0:
-            self.popupMsg(f"Coverage threshold {self.threshold}% must be in the range [0,100], select another value.")
+            self.popupMsg(f"Coverage threshold {self.threshold}% must be in the range [0,100]%, select another value.")
             self.threshold = COVERAGE_THRESHOLD
-            return
+            self.entry.delete(0,END)
         
     ##########################################################################    
     # Select the file to be loaded
