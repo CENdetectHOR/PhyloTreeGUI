@@ -1795,7 +1795,7 @@ class PysageGUI(object):
             self.canvas.get_tk_widget().destroy()
             
         # Draw HOR tree
-        fig = Figure(figsize = (6, 6), dpi = 100, constrained_layout=True)
+        fig = Figure(figsize = (10, 10), dpi = 100, constrained_layout=True)
         fig.canvas.mpl_connect('button_press_event', self.on_click)
         matplotlib.rc('font', size=6)
         ax = fig.add_subplot(1, 1, 1)
@@ -1828,7 +1828,7 @@ class PysageGUI(object):
                 self.clade_ids[key] = cids
                 
         self.patches = ax.patches
-        self.canvas = FigureCanvasTkAgg(fig, master=self.v)
+        self.canvas = FigureCanvasTkAgg(fig, master=self.w)
         self.canvas.draw()
         
         # placing the canvas on the Tkinter window 
@@ -1985,7 +1985,7 @@ class PysageGUI(object):
                 i += 1
         
         # the figure that will contain the plot 
-        self.fig = Figure(figsize = (10, 10), dpi = 100, constrained_layout=True)
+        self.fig = Figure(figsize = (6, 6), dpi = 100, constrained_layout=True)
         matplotlib.rc('font', size=6)
         self.fig.canvas.mpl_connect('button_press_event', self.expandSubTree)
 
@@ -2061,7 +2061,7 @@ class PysageGUI(object):
                 plts.append(cplt)
 
         # Create the canvas
-        self.tree_canvas = FigureCanvasTkAgg(self.fig, master=self.w)
+        self.tree_canvas = FigureCanvasTkAgg(self.fig, master=self.v)
         self.tree_canvas.draw()
         self.other_canvas = FigureCanvasTkAgg(self.other_fig, master=self.z)
         self.other_canvas.draw()
@@ -3147,14 +3147,14 @@ class PysageGUI(object):
         self.close_gap.pack(side='left')
         self.reset_win.pack(side='left')
         # Create frame where the monomers' tree will be displayed
-        self.w = tk.Frame(self.master, background="dimgray")#, width=int(screen_width / 2), height=screen_height)
-        self.w.pack(side='left', fill='both', expand='True')
+        self.w = tk.Frame(self.master, background="white")#, width=int(screen_width / 2), height=screen_height)
+        self.w.pack(side='left', fill='both', expand='False')
         # Create frame containing the visualization of the HORs' tree
         self.v = tk.Frame(self.master, background="white")#, width=int(screen_width / 2), height=int(2 * screen_height / 3))
-        self.v.pack(side='top', fill='both', expand='True')
+        self.v.pack(side='top', fill='both', expand='False')
         # Create frame hosting the plot of selected HORs and their locations in the chromosome sequence
         self.z = tk.Frame(self.master, background="white")#, width=int(screen_width / 2), height=int(screen_height / 3))
-        self.z.pack(side='bottom', fill='both', expand='True')
+        self.z.pack(side='bottom', fill='both', expand='False')
         # Create combobox for files
         self.combo_var = {}
         self.combo = {}
