@@ -389,6 +389,9 @@ class PysageGUI(object):
                     cstart = cseq[0]
                     cend = cseq[1]
                 i += 1
+            # Save last sequence
+            self.tree_seqs.append([cstart,cend])
+            self.tree_seq_len += (cend - cstart)
             #print(self.tree_seqs)
             #print(len(self.tree_seqs))
             #print(self.tree_seq_len)
@@ -2916,7 +2919,10 @@ class PysageGUI(object):
         
     ##########################################################################
     # Manage overlaps between locations <clocs> of <elem> and already covered locations <olocs> by other <elems>
-    def checkNewOverlaps(self, elem, clocs, hors, locs):
+    def checkNewOverlaps(self, elem, elem_locations, hors, hor_locations):
+        # Copy of locations
+        clocs = copy.deepcopy(elem_locations)
+        locs = copy.deepcopy(hor_locations)
         # List of locations to remove
         clocs_to_remove = []
         # List of locations to insert
@@ -3046,11 +3052,18 @@ class PysageGUI(object):
                         prev_start = curr_start
                         prev_end = curr_end
                     else:
+                        """
                         if curr_start > prev_start and curr_end < prev_end:
+                            # Included in already considered locations -> ignore
                             pass
                         elif curr_start > prev_start and curr_end > prev_end:
                             # Partial overlap -> add remaining part
                             coverage += (curr_end - prev_end)
+                        """
+                        if curr_start >= prev_start:
+                            if curr_start > prev_start and curr_end > prev_end:
+                                # Partial overlap -> add remaining part
+                                coverage += (curr_end - prev_end)
             else:
                 pass
             #print(i, loc, coverage)
@@ -3076,7 +3089,7 @@ class PysageGUI(object):
             for elem in clicked:
                 if elem not in examined:
                     coverage = self.hor_coverage[elem]
-                    print(elem, examined, coverage, max_coverage)
+                    #print(elem, examined, coverage, max_coverage)
                     if coverage > max_coverage:
                         max_coverage = coverage
                         max_elem = elem
@@ -3090,6 +3103,7 @@ class PysageGUI(object):
                     # Compute new coverage
                     new_coverage, locs = self.calcNewCoverage(curr_root, curr_hors, curr_locs)
                     if new_coverage >= self.threshold:# or new_coverage - curr_coverage >= 10.0: # TO BE FIXED
+                        #print(f"Current element {curr_root} improved the coverage: old value {curr_coverage:.3f}%, new value {new_coverage:.3f}%!")
                         # Sufficient amount of update, we consider this element
                         # Append root to examined roots list
                         examined_roots.append(curr_root)
@@ -3113,7 +3127,6 @@ class PysageGUI(object):
                         curr_locs.append(locs)
                         curr_hors.append(curr_root)
                         stop = True
-                        #print(f"Current element {curr_root} improved the coverage: old value {curr_coverage:.3f}%, new value {new_coverage:.3f}%!")
                     else:
                         #print(f"Current element {curr_root} does not sufficiently improve the coverage: old value {curr_coverage:.3f}%, new value {new_coverage:.3f}%!")
                         try:
