@@ -243,6 +243,10 @@ class PysageGUI(object):
     # Method computing a dictionary for each HOR containing monomers and locations
     def calcHorsMonomersList(self, old_names, new_names):
         all_clades = self.hor_tree.find_clades()
+        # Info about HOR duplicates
+        hor_names = []
+        hor_duplicates = []
+        nduplicates = 0
         # Build dict associating to each HOR the corresponding list of monomer(s)
         self.hor_dict = {}
         cnt = 0
@@ -282,6 +286,16 @@ class PysageGUI(object):
                     for mono in new_monos:
                         hor_name += mono
                     clade.name = hor_name
+                    # Check if the HOR is duplicated in the HOR tree
+                    if hor_name in hor_names:
+                        # Found a duplicate
+                        if hor_name not in hor_duplicates:
+                            # Add the HOR to the list of duplicates only once
+                            hor_duplicates.append(hor_name)
+                            nduplicates += 1
+                    else:
+                        # The HOR is not (yet) duplicated
+                        hor_names.append(hor_name)
                     # Change clade properties
                     new_value = ""
                     nmonos = len(new_monos)
@@ -296,6 +310,9 @@ class PysageGUI(object):
                     self.hor_dict[clade.name] = [new_monos, [seq.location for seq in clade.sequences if clade.sequences is not None]]
                     if len(new_monos) > self.hor_len:
                         self.hor_len = len(new_monos)
+        if nduplicates > 0:
+            self.popupMsg(f"Warning: there are duplicated HORs in the HOR tree.")
+            print(hor_duplicates)
      
     ##########################################################################
     # Method that loads json and xml files with basename <filename>
@@ -2864,7 +2881,7 @@ class PysageGUI(object):
         sfp.write("\n\nCoverage: %d\t(total = %d)\t%.3f%%\n" % (coverage, self.tree_seq_len, self.total_coverage))
         # Check if coverage is over threshold
         if self.total_coverage < self.threshold:
-            self.popupMsg(f"Coverage {self.total_coverage:.3f}% below threshold {self.threshold}%, you must close the gaps.")
+            self.popupMsg(f"Current coverage is: {self.total_coverage:.3f}%, you need to close gaps to reach {self.threshold}%.")
         sfp.write("\nHOR Coverage:\n\n")
         for hor in self.hor_coverage.keys():
             new_name = hor_name_rel[hor]
