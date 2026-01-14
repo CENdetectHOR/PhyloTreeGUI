@@ -58,8 +58,8 @@ class GUIFactory:
         GUIFactory.factories[idx] = gui_factory
     add_factory = staticmethod(add_factory)
 
-    def create_gui(master, path=os.getcwd(), folder=None):
-        return PysageGUI.Factory().create(master, path=path, folder=folder)
+    def create_gui(master, path=os.getcwd(), unit_length=0, folder=None):
+        return PysageGUI.Factory().create(master, path=path, unit_length=unit_length, folder=folder)
     create_gui = staticmethod(create_gui)
 
 
@@ -68,11 +68,11 @@ class GUIFactory:
 class PysageGUI(object):
 
     class Factory:
-        def create(self, master, path=os.getcwd(), folder=None): return PysageGUI(master, path=path, folder=folder)
+        def create(self, master, path=os.getcwd(), unit_length=0, folder=None): return PysageGUI(master, path=path, unit_length=unit_length, folder=folder)
 
     ##########################################################################
     # standart class init
-    def __init__(self, master, path=os.getcwd(), folder=None):
+    def __init__(self, master, path=os.getcwd(), unit_length=0, folder=None):
 
         self.master = master
         # Directory containing files (json, xml and others)
@@ -83,6 +83,10 @@ class PysageGUI(object):
             sys.exit()
         # Threshold coverage (default is 75.0)
         self.threshold = COVERAGE_THRESHOLD
+        # Unit length flag
+        self.unit_length = False
+        if unit_length == 1:
+            self.unit_length = True
         # Default folder is current directory
         self.folder = os.getcwd()
         if folder is not None:
@@ -418,7 +422,7 @@ class PysageGUI(object):
                         for sclade in clade.clades:
                             self.hor_subtree_roots[sclade.name] = clade.name
             # Calc depths
-            self.hor_dist_from_root = self.hor_tree.depths(unit_branch_lengths=True) # To be modified if we do not want to use unit branch lengths!
+            self.hor_dist_from_root = self.hor_tree.depths(unit_branch_lengths=self.unit_length)
             # Save CSV file containing associations
             self.data = {"old_name": old_names, "new_name": new_names}
             self.tree_for_file = copy.deepcopy(self.tree)
@@ -1045,7 +1049,7 @@ class PysageGUI(object):
         else:
             if name:
                 axes.set_title(name)
-        #axes.set_xlabel("evolutionary distance")#branch length")
+        axes.set_xlabel("Distance")#branch length")
         #axes.set_ylabel("taxa")
         # Add margins around the tree to prevent overlapping the axes
         xmax = max(x_posns.values())
@@ -1053,7 +1057,7 @@ class PysageGUI(object):
         # Also invert the y-axis (origin at the top)
         # Add a small vertical margin, but avoid including 0 and N+1 on the y axis
         axes.set_ylim(max(y_posns.values()) + 0.8, 0.2)
-        axes.set_xticks([])
+        #axes.set_xticks([])
         axes.set_yticks([])
 
         # Parse and process key word arguments as pyplot options
@@ -1409,7 +1413,7 @@ class PysageGUI(object):
         else:
             if name:
                 axes.set_title(name)
-        axes.set_xlabel("evolutionary distance")#branch length")
+        axes.set_xlabel("Evolutionary distance")#branch length")
         #axes.set_ylabel("taxa")
         # Add margins around the tree to prevent overlapping the axes
         xmax = max(x_posns.values())
@@ -1866,7 +1870,7 @@ class PysageGUI(object):
                     ax.add_patch(circle)
                     cids.append(cid)
                     cid += 1
-                self.clade_ids[key] = cids
+                self.clade_ids[key] = cids        
                 
         self.patches = ax.patches
         self.canvas = FigureCanvasTkAgg(fig, master=self.w)
