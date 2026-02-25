@@ -2672,6 +2672,9 @@ class PysageGUI(object):
                         hors_dict[horname] = [cdata[2]]
                         if horname not in hor_names:
                             hor_names.append(horname)
+                    else:
+                        if idx > 0:
+                            horname += ("." + str(idx))
                 else:
                     # None of the examined HORs has the horname
                     examined_hors[horname] = [cdata[2]]
@@ -2741,6 +2744,9 @@ class PysageGUI(object):
                             hors_dict[horname] = [cdata[2]]
                             if horname not in hor_names:
                                 hor_names.append(horname)
+                        else:
+                            if idx > 0:
+                                horname += ("." + str(idx))
                     else:
                         # None of the examined HORs has the horname
                         examined_hors[horname] = [cdata[2]]
