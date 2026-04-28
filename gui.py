@@ -731,10 +731,12 @@ class PysageGUI(object):
         
     ##########################################################################
     def selectBasedOnSimilarity(self):
+        # Monomer length (fixed)
+        l = 171.0
         # Similarity percentage
         sim = self.similarity / 100.0
         # Convert the similarity value to a distance from the root of the phylogenetic tree
-        d = self.max_dist_from_root * sim
+        d = (l * (sim - 1.0) + self.max_dist_from_root)
         # Get keys of the clades in the HOR tree
         clade_keys = self.clade_coords.keys()
         # Initialize lists of clicked nodes and colors
@@ -3213,10 +3215,12 @@ class PysageGUI(object):
             self.tree_canvas.get_tk_widget().destroy()
         if self.other_canvas is not None:
             self.other_canvas.get_tk_widget().destroy()
-        # Reset similarity box flag
-        self.sim_box = False
-        # Destroy similarity box
-        self.combo_sim['similarity'].destroy()
+        # Check if similarity box exists
+        if self.sim_box:
+            # Destroy similarity box
+            self.combo_sim['similarity'].destroy()
+            # Reset similarity box flag
+            self.sim_box = False
         # Reset also file counter
         self.filecnt = 0
         
@@ -3236,10 +3240,10 @@ class PysageGUI(object):
             self.combo_var_sim = {}
             self.combo_sim = {}
             sim_values = []
-            for elem in self.dist_from_root:
-                dist = self.dist_from_root[elem]
+            for elem in self.hor_dist_from_root:
+                dist = self.hor_dist_from_root[elem]
                 if dist not in sim_values:
-                    sim_values.append(round((dist / self.max_dist_from_root) * 100.0, 2))
+                    sim_values.append(round((1.0 - (self.max_dist_from_root - dist) / 171.0) * 100.0, 2))
             # Extract a set from the list (unique values)
             sim_values = set(sim_values)
             sim_values = sorted(sim_values)
@@ -3266,6 +3270,12 @@ class PysageGUI(object):
             # We are selecting a different file, clear the HOR window
             if self.canvas is not None:
                 self.canvas.get_tk_widget().destroy()
+            # Check if similarity box exists
+            if self.sim_box:
+                # Destroy similarity box
+                self.combo_sim['similarity'].destroy()
+                # Reset similarity box flag
+                self.sim_box = False
         self.filename = self.combo['file'].get()
         # We add the suffix previously removed for visualization purposes
         self.filename += ".tree.xml"
