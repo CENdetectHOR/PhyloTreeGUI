@@ -33,9 +33,12 @@ from matplotlib.widgets import Slider
 import time
 import seaborn as sns
 import itertools
+import operator
 
 # Default sequence coverage threshold
 COVERAGE_THRESHOLD = 75.0
+# Default similarity threshold
+SIMILARITY_THRESHOLD = 0.5
 
 # Seaborn palette list
 SNS_PALETTES = ['bright', 'deep', 'muted', 'Accent', 'Blues', 'BrBG', 'BuGn', 'BuPu', 'CMRmap', 'Dark2', 'GnBu', 'Greens', 'OrRd', 'Oranges', 'PRGn', 'Paired', 'Pastel1', 'Pastel2',  'PiYG', 'PuBu', 'PuBuGn', 'PuOr', 'PuRd', 'Purples', 'RdBu', 'RdGy', 'RdPu', 'RdYlBu', 'RdYlGn', 'Reds', 'Set1', 'Set2', 'Set3', 'Spectral', 'Wistia', 'YlGn', 'YlGnBu', 'YlOrBr', 'YlOrRd', 'afmhot', 'autumn', 'binary', 'bone', 'brg', 'bwr', 'cividis', 'cool', 'coolwarm', 'copper', 'cubehelix', 'flag', 'gist_earth', 'gist_heat', 'gist_ncar', 'gist_rainbow', 'gist_stern', 'gnuplot', 'gnuplot2', 'hot', 'hsv', 'icefire', 'inferno', 'magma', 'mako', 'nipy_spectral', 'ocean', 'pink', 'plasma', 'prism', 'rainbow', 'rocket', 'seismic', 'spring', 'summer', 'tab10', 'tab20', 'tab20b', 'tab20c', 'terrain', 'turbo',  'twilight', 'twilight_shifted', 'viridis', 'vlag', 'winter']
@@ -83,6 +86,8 @@ class PysageGUI(object):
             sys.exit()
         # Threshold coverage (default is 75.0)
         self.threshold = COVERAGE_THRESHOLD
+        # Similarity (default is 0.5)
+        self.similarity = None#SIMILARITY_THRESHOLD
         # Unit length flag
         self.unit_length = False
         if unit_length == 1:
@@ -102,6 +107,8 @@ class PysageGUI(object):
         self.actual_root = None
         self.tree_seqs = None # Sequences of the monomer tree that must be filled by HORs
         self.tree_seq_len = None # Length of the sequences to fill with HORs
+        self.dist_from_root = None
+        self.max_dist_from_root = None
         # HOR tree
         self.hor_tree = None
         self.hor_tree_backup = None # Backup for HORs' tree
@@ -147,6 +154,8 @@ class PysageGUI(object):
         self.zoomed = False
         self.zoomed_nodes = []
         self.zoomed_coords = []
+        # Similarity box
+        self.sim_box = False
         # Object used to plot the highlight and scroll
         self.treeForSubPlot = None
         # Tree axis
@@ -396,10 +405,10 @@ class PysageGUI(object):
             # Save last sequence
             self.tree_seqs.append([cstart,cend])
             self.tree_seq_len += (cend - cstart)
-            #print(self.tree_seqs)
-            #print(len(self.tree_seqs))
-            #print(self.tree_seq_len)
-            #sys.exit()
+            # Calc depths
+            self.dist_from_root = self.tree.depths(unit_branch_lengths=self.unit_length)
+            maxk = max(self.dist_from_root.items(), key=operator.itemgetter(1))[0]
+            self.max_dist_from_root = self.dist_from_root[maxk]
             # HORs
             self.hor_tree = trees[1]
             self.hot_tree_backup = copy.deepcopy(self.hor_tree)
@@ -651,6 +660,10 @@ class PysageGUI(object):
             self.popupMsg(f"You must select a HOR first.")
             return
             
+        if self.similarity is not None:
+            self.popupMsg(f"HORs have been selected based on similarity!")
+            return
+            
         # Copy of clicked to avoid infinite looping!!!
         clicked = copy.deepcopy(self.clicked)
         
@@ -713,6 +726,42 @@ class PysageGUI(object):
                         if other_patch_in_list is not None:
                             patches_at_the_same_dist.append(other_patch_in_list)
                         found_patch = True
+
+        self.canvas.draw()
+        
+    ##########################################################################
+    def selectBasedOnSimilarity(self):
+        # Similarity percentage
+        sim = self.similarity / 100.0
+        # Convert the similarity value to a distance from the root of the phylogenetic tree
+        d = self.max_dist_from_root * sim
+        # Get keys of the clades in the HOR tree
+        clade_keys = self.clade_coords.keys()
+        # Initialize lists of clicked nodes and colors
+        if self.clicked is None:
+            self.clicked = []
+        if self.clicked_colors is None:
+            self.clicked_colors = []
+        if self.clicked_patches is None:
+            self.clicked_patches = []
+        # Loop over patches
+        for i, patch in enumerate(self.patches):
+            center = patch.center
+            cx, cy = tuple(center)
+            # Check to avoid considering this patch (the constant value should be an upper bound)
+            if abs(cx - d) > 0.25:
+                continue
+            for key in clade_keys:
+                coords = self.clade_coords[key]
+                if isinstance(coords, tuple):
+                    if tuple(coords) == (cx, cy):
+                        if key not in self.clicked:
+                            ccolor = self.hor_colors[self.num_clicked % len(self.hor_colors)]
+                            patch.set_color(ccolor)
+                            self.clicked.append(key)
+                            self.clicked_colors.append(ccolor)
+                            self.clicked_patches.append(patch)
+                            self.num_clicked += 1
 
         self.canvas.draw()
             
@@ -3164,6 +3213,10 @@ class PysageGUI(object):
             self.tree_canvas.get_tk_widget().destroy()
         if self.other_canvas is not None:
             self.other_canvas.get_tk_widget().destroy()
+        # Reset similarity box flag
+        self.sim_box = False
+        # Destroy similarity box
+        self.combo_sim['similarity'].destroy()
         # Reset also file counter
         self.filecnt = 0
         
@@ -3174,6 +3227,37 @@ class PysageGUI(object):
             self.popupMsg(f"Coverage threshold {self.threshold}% must be in the range [0,100]%, select another value.")
             self.threshold = COVERAGE_THRESHOLD
             self.entry.delete(0,END)
+            
+    ##########################################################################    
+    def setSimilarity(self):
+        # We create the combobox only if it has not yet created
+        if not self.sim_box:
+            # Create combobox for similarity values
+            self.combo_var_sim = {}
+            self.combo_sim = {}
+            sim_values = []
+            for elem in self.dist_from_root:
+                dist = self.dist_from_root[elem]
+                if dist not in sim_values:
+                    sim_values.append(round((dist / self.max_dist_from_root) * 100.0, 2))
+            # Extract a set from the list (unique values)
+            sim_values = set(sim_values)
+            sim_values = sorted(sim_values)
+            self.combo_var_sim['similarity'] = tk.StringVar() 
+            self.combo_sim['similarity'] = ttk.Combobox(self.toolbar, values = tuple(sim_values), width = 10, textvariable = self.combo_var_sim['similarity'])
+            # Adding combobox drop down list 
+            self.combo_sim['similarity'].pack(side='right') 
+            self.combo_sim['similarity'].current()
+            self.combo_sim['similarity'].bind("<<ComboboxSelected>>", self.chooseSimilarity)
+            # Set flag to true (to avoid multiple creations)
+            self.sim_box = True
+        
+    ##########################################################################    
+    # Select the similarity
+    def chooseSimilarity(self, event):
+        self.similarity = float(self.combo_sim['similarity'].get())
+        # Call method to select based on similarity
+        self.selectBasedOnSimilarity()
         
     ##########################################################################    
     # Select the file to be loaded
@@ -3251,12 +3335,15 @@ class PysageGUI(object):
         self.combo['file'].current()
         self.combo['file'].bind("<<ComboboxSelected>>", self.chooseFile)
         # label 
-        file_label = tk.Label(self.toolbar, text = "Load file(s) :",  font = ("Times New Roman", 10))
+        file_label = tk.Label(self.toolbar, text = "Load file(s):",  font = ("Times New Roman", 10))
         file_label.pack(side='right')
         # Create entry to set the threshold for sequence coverage
-        self.entry = tk.Entry(self.toolbar)
+        self.entry = tk.Entry(self.toolbar, width=10)
         self.entry.bind("<Return>", self.setThreshold)
         self.entry.pack(side='right')
-        coverage_label = tk.Label(self.toolbar, text="Desired coverage:")
+        coverage_label = tk.Label(self.toolbar, text="Coverage:")
         coverage_label.pack(side='right')
+        # Create button to see the available similarity thresholds in order to select HORs
+        self.sim = tk.Button(self.toolbar, text="ShowSimilarity", command=lambda: self.setSimilarity())
+        self.sim.pack(side='right')
         
