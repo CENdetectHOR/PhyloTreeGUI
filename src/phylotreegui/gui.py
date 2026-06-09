@@ -1168,9 +1168,12 @@ class PysageGUI(object):
         self.collapsed_colors = {}
         self.collapsed_patches = {}
     
-        # Arrays that store lines for the plot of clades
-        horizontal_linecollections = []
-        vertical_linecollections = []
+        # Segments/colors/widths for clade lines. These are accumulated while
+        # walking the tree and drawn as two batched LineCollections (one for all
+        # horizontal segments, one for all vertical segments) instead of creating
+        # a separate LineCollection per branch segment.
+        h_segments, h_colors, h_lws = [], [], []
+        v_segments, v_colors, v_lws = [], [], []
 
         # Options for displaying branch labels / confidence
         def conf2str(conf):
@@ -1233,26 +1236,30 @@ class PysageGUI(object):
         for monomer in self.monomers:
             mono_names.update(monomer)
 
-        # Single post-order pass to precompute, for every clade, the set of names in
-        # its subtree (including itself) and the number of clades in its subtree.
-        # This replaces the repeated clade.find_clades() scans below.
-        subtree_names = {}
+        # Single post-order pass to precompute, for every clade, whether its subtree
+        # (including itself) contains a selected-HOR name and the number of clades in
+        # its subtree. Only the boolean and count are needed below, so we avoid
+        # materialising the full descendant name-sets.
+        subtree_has_selected = {}
         subtree_count = {}
         for clade in tree.find_clades(order="postorder"):
-            names = set()
-            if clade.name:
-                names.add(clade.name)
+            found = clade.name in mono_names
             count = 1
             for child in clade.clades:
-                names |= subtree_names[child]
+                found = found or subtree_has_selected[child]
                 count += subtree_count[child]
-            subtree_names[clade] = names
+            subtree_has_selected[clade] = found
             subtree_count[clade] = count
+
+        # Cache a single (pre-order) traversal of all clades; reused for the collapse
+        # pass, the visible-node ordering and the clade->index map below, instead of
+        # rescanning the whole tree each time.
+        all_clades = list(tree.find_clades())
 
         # Check clades to collapse. A clade is collapsed when none of the names in its
         # subtree belong to a selected HOR and the subtree has at least 10 clades.
         def checkCollapsedClades(clade):
-            found = len(subtree_names[clade] & mono_names) > 0
+            found = subtree_has_selected[clade]
             collapsed = (not found) and subtree_count[clade] >= 10 # 10 is constant, maybe it could be changed...
             self.clades_to_collapse[clade] = [collapsed, None]
             if collapsed:
@@ -1262,7 +1269,7 @@ class PysageGUI(object):
                         self.clades_to_collapse[elem] = [True, clade]
 
         # Dict containing a flag for each clade indicating whether or not it will be collapsed
-        for clade in tree.find_clades():
+        for clade in all_clades:
             if clade not in self.clades_to_collapse:
                 checkCollapsedClades(clade)
 
@@ -1302,7 +1309,6 @@ class PysageGUI(object):
             maxheight = len(visible_leaves) + len(visible_collapsed)
             visible_nodes = []
             visible_nodes_set = set()
-            all_clades = tree.find_clades()
             for elem in all_clades:
                 if elem in visible_leaves or elem in visible_collapsed:
                     visible_nodes.append(elem)
@@ -1348,7 +1354,7 @@ class PysageGUI(object):
         x_posns, y_posns, visible_clades = get_xy_positions(tree)
         # Precompute clade -> index map once, instead of rescanning the whole tree
         # for every collapsed clade inside draw_clade.
-        index_map = {elem: i for i, elem in enumerate(tree.find_clades())}
+        index_map = {elem: i for i, elem in enumerate(all_clades)}
         # The function draw_clade closes over the axes object
         if axes is None:
             fig = plt.figure()
@@ -1371,19 +1377,15 @@ class PysageGUI(object):
             if not use_linecollection and orientation == "horizontal":
                 axes.hlines(y_here, x_start, x_here, color=color, lw=lw)
             elif use_linecollection and orientation == "horizontal":
-                horizontal_linecollections.append(
-                    mpcollections.LineCollection(
-                        [[(x_start, y_here), (x_here, y_here)]], color=color, lw=lw
-                    )
-                )
+                h_segments.append([(x_start, y_here), (x_here, y_here)])
+                h_colors.append(color)
+                h_lws.append(lw)
             elif not use_linecollection and orientation == "vertical":
                 axes.vlines(x_here, y_bot, y_top, color=color)
             elif use_linecollection and orientation == "vertical":
-                vertical_linecollections.append(
-                    mpcollections.LineCollection(
-                        [[(x_here, y_bot), (x_here, y_top)]], color=color, lw=lw
-                    )
-                )
+                v_segments.append([(x_here, y_bot), (x_here, y_top)])
+                v_colors.append(color)
+                v_lws.append(lw)
                         
         def draw_clade(clade, x_start, color, lw):
             """Recursively draw a tree, down from the given clade."""
@@ -1451,12 +1453,16 @@ class PysageGUI(object):
 
         draw_clade(tree.root, 0, "k", plt.rcParams["lines.linewidth"])
 
-        # If line collections were used to create clade lines, here they are added
-        # to the pyplot plot.
-        for i in horizontal_linecollections:
-            axes.add_collection(i)
-        for i in vertical_linecollections:
-            axes.add_collection(i)
+        # All horizontal/vertical segments are drawn as two batched LineCollections
+        # (with per-segment colors/widths) instead of one collection per segment.
+        if h_segments:
+            axes.add_collection(
+                mpcollections.LineCollection(h_segments, colors=h_colors, linewidths=h_lws)
+            )
+        if v_segments:
+            axes.add_collection(
+                mpcollections.LineCollection(v_segments, colors=v_colors, linewidths=v_lws)
+            )
 
         # Aesthetics
 
