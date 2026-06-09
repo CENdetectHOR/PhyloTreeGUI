@@ -8,6 +8,7 @@ from matplotlib import cm
 import tkinter as tk
 import tkinter.font as font
 from tkinter import ttk
+from tkinter import messagebox
 from tkinter import *
 import numpy as np
 import json
@@ -103,6 +104,9 @@ class PysageGUI(object):
         
         # Phylogenetic tree
         self.tree = None
+        self._name_to_clades = {} # Index: clade name -> list of clades in self.tree
+        self._tree_plot_cache = None # Cached deepcopy of self.tree used by showData
+        self._tree_plot_cache_key = None # Selection signature the cache was built for
         self.tree_backup = None # Backup for monomers' tree
         self.actual_root = None
         self.tree_seqs = None # Sequences of the monomer tree that must be filled by HORs
@@ -246,11 +250,9 @@ class PysageGUI(object):
     ##########################################################################
     # Method that generates a pop-up with an error message
     def popupMsg(self, msg):
-        popup = tk.Toplevel(self.w)
-        popup.wm_title("Error")
-        popup.tkraise(self.w) # This just tells the message to be on top of the root window.
-        tk.Label(popup, text=msg).pack(side="top", fill="x", pady=10)
-        tk.Button(popup, text="Ok", command = popup.destroy).pack()
+        # Use a native dialog so the message text always renders (the previous
+        # hand-built Toplevel could appear empty/zero-sized on macOS).
+        messagebox.showinfo("PhyloTreeGUI", msg, parent=self.master)
         
     ##########################################################################
     # Method computing a dictionary for each HOR containing monomers and locations
@@ -331,8 +333,14 @@ class PysageGUI(object):
     # Method that loads json and xml files with basename <filename>
     def loadFile(self, filename=None):
         self.fcnt = 1
+        # A new tree invalidates any cached deepcopy used for plotting.
+        self._tree_plot_cache = None
+        self._tree_plot_cache_key = None
         if filename is not None:
-            res = Phylo.parse(filename, "phyloxml")
+            # The dropdown stores a bare filename; resolve it against the input
+            # directory so loading works regardless of the current working directory.
+            filepath = os.path.join(self.filedir, filename)
+            res = Phylo.parse(filepath, "phyloxml")
             trees = []
             for i, elem in enumerate(res):
                 trees.append(elem)
@@ -361,6 +369,12 @@ class PysageGUI(object):
                      clade.name = cname
                      self.fcnt += 1
             assert len(old_names) == len(new_names), "Weird error in list append"
+            # Build an index mapping clade name -> list of clades for O(1) lookups.
+            # find_clades(name) matches clades whose str() (i.e. name) equals the target,
+            # so this dict is an equivalent, much faster substitute.
+            self._name_to_clades = {}
+            for clade in self.tree.find_clades():
+                self._name_to_clades.setdefault(clade.name, []).append(clade)
             # Compute the locations in the monomer tree to be covered
             seq_locs = []
             cnt = 0
@@ -436,6 +450,7 @@ class PysageGUI(object):
             self.data = {"old_name": old_names, "new_name": new_names}
             self.tree_for_file = copy.deepcopy(self.tree)
             self.hor_tree_for_file = copy.deepcopy(self.hor_tree)
+            print(f"Loaded {filename}: {len(old_names)} monomer families, {len(self.hor_dict)} HORs. Click PlotTree to display the HOR tree.")
         else:
             self.popupMsg("You must select the file before loading!!!")
             return
@@ -490,7 +505,7 @@ class PysageGUI(object):
             for mono in monomers:
                 colored = False
                 if mono not in examined:
-                    clades = self.tree.find_clades(mono)
+                    clades = self._name_to_clades.get(mono, [])
                     for clade in clades:
                         clade.color = PX.BranchColor.from_hex(self.colors[elem % len(self.colors)])
                         colored = True
@@ -499,8 +514,7 @@ class PysageGUI(object):
                             mono_clade.color = clade.color
                     examined.append(mono)
                 else:
-                    clades = self.tree.find_clades(mono)
-                    clade = list(clades)[0] # To access the clade
+                    clade = self._name_to_clades.get(mono, [])[0] # To access the clade
                 mono_colors.append(clade.color)
                 if colored:
                     elem += 1
@@ -1214,44 +1228,32 @@ class PysageGUI(object):
                 # if label_colors is not specified, use black
                 return "black"
                 
-        # Check clades to collapse
-        def checkCollapsedClades(clade):
-            collapsed = False
-            check = False
-            found = False
+        # Flatten the selected monomers into a single set for O(1) membership tests.
+        mono_names = set()
+        for monomer in self.monomers:
+            mono_names.update(monomer)
+
+        # Single post-order pass to precompute, for every clade, the set of names in
+        # its subtree (including itself) and the number of clades in its subtree.
+        # This replaces the repeated clade.find_clades() scans below.
+        subtree_names = {}
+        subtree_count = {}
+        for clade in tree.find_clades(order="postorder"):
+            names = set()
             if clade.name:
-                # Check whether clade in at least one of the HORs
-                for monomer in self.monomers:
-                    if clade.name in monomer:
-                        found = True
-                        break
-                if not found:
-                    # Clade is not contained in any of the HORs -> check whether at least one subclade is contained in the HORs
-                    subclades = clade.find_clades()
-                    for sclade in subclades:
-                        for monomer in self.monomers:
-                            if sclade.name in monomer:
-                                found = True
-                                break
-                    if not found:
-                        # If neither the clade is in the HOR list, nor any of its subclades is, we must check the size of this portion of the tree
-                        check = True
-            else:
-                # Check whether at least one subclade is contained in the HORs
-                subclades = clade.find_clades()
-                for sclade in subclades:
-                    for monomer in self.monomers:
-                        if sclade.name in monomer:
-                            found = True
-                            break
-                if not found:
-                    # If none of the subclades is in the list, we must check the size of this portion of the tree
-                    check = True
-            if check:
-                # Check sub-clades
-                nsubclades = sum([1 for elem in clade.find_clades()])
-                if nsubclades >= 10: # It is constant, maybe it could be changed...
-                    collapsed = True
+                names.add(clade.name)
+            count = 1
+            for child in clade.clades:
+                names |= subtree_names[child]
+                count += subtree_count[child]
+            subtree_names[clade] = names
+            subtree_count[clade] = count
+
+        # Check clades to collapse. A clade is collapsed when none of the names in its
+        # subtree belong to a selected HOR and the subtree has at least 10 clades.
+        def checkCollapsedClades(clade):
+            found = len(subtree_names[clade] & mono_names) > 0
+            collapsed = (not found) and subtree_count[clade] >= 10 # 10 is constant, maybe it could be changed...
             self.clades_to_collapse[clade] = [collapsed, None]
             if collapsed:
                 # Collapse all sub-clades
@@ -1270,37 +1272,41 @@ class PysageGUI(object):
             x = {}
             y = {}
             # Compute the list of visible clades and the list of visible collapsed clades
-            visible_collapsed = []
+            visible_collapsed = set()
             visible = []
+            visible_set = set()
             for elem in self.clades_to_collapse:
                 flag, parent = self.clades_to_collapse[elem]
                 if parent is None:
                     visible.append(elem)
+                    visible_set.add(elem)
                     if flag:
-                        visible_collapsed.append(elem)
+                        visible_collapsed.add(elem)
             
             depths = tree.depths()
             # If there are no branch lengths, assume unit branch lengths
             if not max(depths.values()):
                 depths = tree.depths(unit_branch_lengths=True)
             for elem in depths:
-                if elem in visible:
+                if elem in visible_set:
                     x[elem] = depths[elem]
             
             # Compute the list of visible leaves in the tree
-            visible_leaves = []
+            visible_leaves = set()
             leaves = tree.get_terminals()
             for leaf in leaves:
-                if leaf in visible:
-                    visible_leaves.append(leaf)
+                if leaf in visible_set:
+                    visible_leaves.add(leaf)
             
             # Height of the collapsed tree depends on the number of visible leaves and visible collapsed clades
             maxheight = len(visible_leaves) + len(visible_collapsed)
             visible_nodes = []
+            visible_nodes_set = set()
             all_clades = tree.find_clades()
             for elem in all_clades:
                 if elem in visible_leaves or elem in visible_collapsed:
                     visible_nodes.append(elem)
+                    visible_nodes_set.add(elem)
                     
             # Rows are defined by the tips
             heights = {tip: maxheight - i for i, tip in enumerate(reversed(visible_nodes))}#tree.get_terminals()))}
@@ -1310,7 +1316,7 @@ class PysageGUI(object):
             for elem in visible:
                 subclades = []
                 for sclade in elem.clades:
-                    if sclade in visible:
+                    if sclade in visible_set:
                         subclades.append(sclade)
                 visible_subclades[elem] = subclades
 
@@ -1322,7 +1328,7 @@ class PysageGUI(object):
                     clade_leaves = clade.get_terminals()
                     subclades = []
                     for leaf in clade_leaves:
-                        if leaf in visible_nodes:
+                        if leaf in visible_nodes_set:
                             subclades.append(leaf)
                 for subclade in subclades:
                     if subclade not in heights:
@@ -1337,9 +1343,12 @@ class PysageGUI(object):
             
             y = heights
 
-            return x, y, visible
+            return x, y, visible_set
 
         x_posns, y_posns, visible_clades = get_xy_positions(tree)
+        # Precompute clade -> index map once, instead of rescanning the whole tree
+        # for every collapsed clade inside draw_clade.
+        index_map = {elem: i for i, elem in enumerate(tree.find_clades())}
         # The function draw_clade closes over the axes object
         if axes is None:
             fig = plt.figure()
@@ -1398,13 +1407,7 @@ class PysageGUI(object):
                 )
                 # Add the "new" tree to the dict
                 self.collapsed_clades[(x_here, y_here)] = PX.Phylogeny(root=clade, name=clade.name)
-                idx = None
-                cnt = 0
-                for elem in tree.find_clades():
-                    if elem == clade:
-                        idx = cnt
-                        break
-                    cnt += 1
+                idx = index_map.get(clade)
                 self.collapsed_indices[clade] = idx
                 self.collapsed_colors[clade] = clade.color
                 draw = False
@@ -2058,7 +2061,8 @@ class PysageGUI(object):
              clade.color = PX.BranchColor.from_name('black')
              
         # Check whether at least one of the HORs has been clicked
-        if len(self.clicked) < 1:
+        # (self.clicked is None until the HOR tree has been plotted and a node selected).
+        if not self.clicked:
             self.popupMsg("You can see monomers' tree only after choosing at least one of the HORs.")
             return
             
@@ -2089,8 +2093,15 @@ class PysageGUI(object):
         self.ax_tree = self.fig.add_subplot(1, 1, 1)
         # containing the Matplotlib figure 
         matplotlib.rcParams["lines.linewidth"] = 0.5
-        # Create a copy of the tree
-        treeToPlot = copy.deepcopy(self.tree)
+        # Create a copy of the tree. extractHORs() colors self.tree deterministically from
+        # the current selection, so an unchanged selection yields an identical copy; reuse it.
+        selection_key = tuple(self.clicked)
+        if self._tree_plot_cache is not None and self._tree_plot_cache_key == selection_key:
+            treeToPlot = self._tree_plot_cache
+        else:
+            treeToPlot = copy.deepcopy(self.tree)
+            self._tree_plot_cache = treeToPlot
+            self._tree_plot_cache_key = selection_key
         self.drawCollapsedTree(treeToPlot, axes=self.ax_tree)
         self.ax_tree.get_yaxis().set_visible(False)
         
@@ -2117,9 +2128,8 @@ class PysageGUI(object):
             ax_hor.set_xticks(np.arange(0, len(cmono) + 1, 1))
             ax_hor.get_yaxis().set_visible(False)
             ax_hor.get_xaxis().set_visible(False)
-            for i in range(len(cmono)):
-                rect = patches.Rectangle((i, 0), 1, 1, facecolor=cmono_colors[i].to_hex(), edgecolor='black')
-                ax_hor.add_patch(rect)
+            mono_rects = [patches.Rectangle((i, 0), 1, 1, facecolor=cmono_colors[i].to_hex(), edgecolor='black') for i in range(len(cmono))]
+            ax_hor.add_collection(mpcollections.PatchCollection(mono_rects, match_original=True))
                 #ax_hor.text(i, 1.25, str(cmono[i]), fontsize='x-small')
             hor_circ = patches.Circle((-1.25, 0.5), 0.25, color=self.clicked_colors[j], clip_on=False)
             #hor_rect = patches.Rectangle((-1.5, 0.25), 1, 0.5, color=self.clicked_colors[j], clip_on=False)
@@ -2148,11 +2158,15 @@ class PysageGUI(object):
             # Color locations of the HORS with black
             trans = ax_seq.get_xaxis_transform()
             cplt = None
+            loc_rects = []
             for loc in self.locations[j]:
-                cplt = ax_seq.add_patch(patches.Rectangle((loc[0], 0), (loc[1] - loc[0]), 1, facecolor=self.clicked_colors[j]))
+                cplt = patches.Rectangle((loc[0], 0), (loc[1] - loc[0]), 1, facecolor=self.clicked_colors[j])
+                loc_rects.append(cplt)
                 # Check whether the strand is inverted (i.e., '-'). If negative, add an arrow over the bar corresponding to the location
                 if "-" in loc[2]:
                     ax_seq.annotate("", (loc[1], 1.25), (loc[0], 1.25), xycoords=trans, arrowprops=dict(arrowstyle='<|-'))#width=1))
+            if loc_rects:
+                ax_seq.add_collection(mpcollections.PatchCollection(loc_rects, match_original=True))
             if cplt is not None:
                 plts.append(cplt)
 
@@ -2680,7 +2694,7 @@ class PysageGUI(object):
                 break
             cnt += 1
         if found:
-            assert idx >= 0 and idx < len(self.clicked_colors)
+            assert 0 <= idx < len(self.clicked_colors), f"HOR color index {idx} out of range (have {len(self.clicked_colors)} selected colors)"
             # Extract the color
             ccolor = self.clicked_colors[idx]
             # Convert the color string into RGB (values bounded in the range [0,1])
@@ -2752,7 +2766,7 @@ class PysageGUI(object):
                     break
                 cnt += 1
             if found:
-                assert idx >= 0 and idx < len(self.clicked_colors)
+                assert 0 <= idx < len(self.clicked_colors), f"HOR color index {idx} out of range (have {len(self.clicked_colors)} selected colors)"
                 exist = False
                 # Extract the color
                 ccolor = self.clicked_colors[idx]
@@ -3265,7 +3279,7 @@ class PysageGUI(object):
         
     ##########################################################################    
     # Select the file to be loaded
-    def chooseFile(self, event):
+    def chooseFile(self, event=None):
         if self.filename is not None:
             # We are selecting a different file, clear the HOR window
             if self.canvas is not None:
@@ -3276,7 +3290,7 @@ class PysageGUI(object):
                 self.combo_sim['similarity'].destroy()
                 # Reset similarity box flag
                 self.sim_box = False
-        self.filename = self.combo['file'].get()
+        self.filename = self.combo_var['file'].get()
         # We add the suffix previously removed for visualization purposes
         self.filename += ".tree.xml"
 
@@ -3285,7 +3299,8 @@ class PysageGUI(object):
     def initialize(self):
         screen_width = self.master.winfo_screenwidth()
         screen_height = self.master.winfo_screenheight()
-        self.master.geometry("%dx%d" % (screen_width, screen_height))
+        # Anchor at the top-left so the toolbar's right-hand widgets are not pushed off-screen.
+        self.master.geometry("%dx%d+0+0" % (screen_width, screen_height))
         self.toolbar = tk.Frame(self.master, relief='raised', bd=2)
         self.toolbar.pack(side='top', fill='x')
         self.font=("Arial", 25)
@@ -3338,15 +3353,19 @@ class PysageGUI(object):
         file_values = set(file_values)
         # Sort files alphabetically
         file_values = sorted(file_values)
-        self.combo_var['file'] = tk.StringVar() 
-        self.combo['file'] = ttk.Combobox(self.toolbar, values = tuple(file_values), width = 15, textvariable = self.combo_var['file'])
-        # Adding combobox drop down list 
-        self.combo['file'].pack(side='right') 
-        self.combo['file'].current()
-        self.combo['file'].bind("<<ComboboxSelected>>", self.chooseFile)
-        # label 
+        print(f"PhyloTreeGUI: file selector ready in directory '{self.filedir}' with {len(file_values)} file(s): {file_values}")
+        # Use a classic Tk OptionMenu instead of ttk.Combobox: it renders reliably on the
+        # deprecated macOS system Tk 8.5. Pre-select the first file so LoadFile works immediately.
+        self.combo_var['file'] = tk.StringVar()
+        default_file = file_values[0]
+        self.combo_var['file'].set(default_file)
+        self.filename = default_file + ".tree.xml"
+        # label
         file_label = tk.Label(self.toolbar, text = "Load file(s):",  font = ("Times New Roman", 10))
-        file_label.pack(side='right')
+        self.combo['file'] = tk.OptionMenu(self.toolbar, self.combo_var['file'], *file_values, command=self.chooseFile)
+        # Place the file selector on the left, next to the buttons, so it is always visible
+        file_label.pack(side='left')
+        self.combo['file'].pack(side='left')
         # Create entry to set the threshold for sequence coverage
         self.entry = tk.Entry(self.toolbar, width=10)
         self.entry.bind("<Return>", self.setThreshold)
